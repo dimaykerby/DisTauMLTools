@@ -35,7 +35,7 @@ options.register('requireGenMatch', True, VarParsing.multiplicity.singleton, Var
                  "Store only tau jets that have genLepton_index >= 0 or genJet_index >= 0.")
 options.register('requireGenORRecoTauMatch', True, VarParsing.multiplicity.singleton, VarParsing.varType.bool,
                  """Store only tau jets that satisfy the following condition:
-                    tau_index >= 0 || boostedTau_index >= 0 || (genLepton_index >= 0 && genLepton_kind == 5)""")
+                    tau_index >= 0 || (genLepton_index >= 0 && genLepton_kind == 5)""")
 options.register('applyRecoPtSieve', False, VarParsing.multiplicity.singleton, VarParsing.varType.bool,
                  "Randomly drop jet->tau fakes depending on reco tau pt to balance contributions from low and higt pt.")
 options.register('reclusterJets', True, VarParsing.multiplicity.singleton, VarParsing.varType.bool,
@@ -186,14 +186,11 @@ else:
 tauJetBuilderSetup = cms.PSet(
     genLepton_genJet_dR     = cms.double(0.4),
     genLepton_tau_dR        = cms.double(0.2),
-    genLepton_boostedTau_dR = cms.double(0.2),
     genLepton_jet_dR        = cms.double(0.4),
     genLepton_fatJet_dR     = cms.double(0.8),
     genJet_tau_dR           = cms.double(0.4),
-    genJet_boostedTau_dR    = cms.double(0.4),
     genJet_jet_dR           = cms.double(0.4),
     genJet_fatJet_dR        = cms.double(0.8),
-    tau_boostedTau_dR       = cms.double(0.2),
     tau_jet_dR              = cms.double(0.4),
     tau_fatJet_dR           = cms.double(0.8),
     jet_fatJet_dR           = cms.double(0.8),
@@ -202,7 +199,6 @@ tauJetBuilderSetup = cms.PSet(
     genLepton_cone          = cms.double(0.5),
     genJet_cone             = cms.double(0.5),
     tau_cone                = cms.double(0.5),
-    boostedTau_cone         = cms.double(0.5),
     jet_cone                = cms.double(0.8),
     fatJet_cone             = cms.double(0.8),
 )
@@ -222,10 +218,7 @@ process.tauTupleProducer = cms.EDAnalyzer('TauTupleProducer',
     puInfo             = cms.InputTag('slimmedAddPileupInfo'),
     vertices           = vtx_InputTag,
     rho                = cms.InputTag('fixedGridRhoAll'),
-    electrons          = electrons_InputTag,
-    muons              = cms.InputTag('slimmedMuons'),
     taus               = taus_InputTag,
-    boostedTaus        = boostedTaus_InputTag,
     jets               = cms.InputTag('slimmedJets'),
     fatJets            = cms.InputTag('slimmedJetsAK8'),
     pfCandidates       = cms.InputTag('packedPFCandidates'),

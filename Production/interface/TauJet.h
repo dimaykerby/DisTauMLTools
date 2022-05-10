@@ -20,7 +20,6 @@ struct PFCandDesc {
     const pat::PackedCandidate* candidate;
     int index{-1}, subJetDaughter{-1};
     bool tauSignal{false}, tauLeadChargedHadrCand{false}, tauIso{false};
-    bool boostedTauSignal{false}, boostedTauLeadChargedHadrCand{false}, boostedTauIso{false};
     bool jetDaughter{false}, fatJetDaughter{false};
 };
 
@@ -44,35 +43,30 @@ struct ObjPtr {
 
 struct TauJet {
     using PFCandCollection = std::vector<PFCandDesc>;
-    using ElectronCollection = std::vector<ObjPtr<const pat::Electron>>;
-    using MuonCollection = std::vector<ObjPtr<const pat::Muon>>;
     using IsoTrackCollection = std::vector<ObjPtr<const pat::IsolatedTrack>>;
     using LostTrackCollection = std::vector<ObjPtr<const pat::PackedCandidate>>;
 
     ObjPtr<reco_tau::gen_truth::GenLepton> genLepton;
     ObjPtr<const reco::GenJet> genJet;
     ObjPtr<const pat::Tau> tau;
-    ObjPtr<const pat::Tau> boostedTau;
     ObjPtr<const pat::Jet> jet;
     ObjPtr<const pat::Jet> fatJet;
 
     PFCandCollection cands;
-    ElectronCollection electrons;
-    MuonCollection muons;
     IsoTrackCollection isoTracks;
     PFCandCollection lostTracks;
 };
 
 struct TauJetBuilderSetup {
-    double genLepton_genJet_dR{0.4}, genLepton_tau_dR{0.2}, genLepton_boostedTau_dR{0.2}, genLepton_jet_dR{0.4},
+    double genLepton_genJet_dR{0.4}, genLepton_tau_dR{0.2}, genLepton_jet_dR{0.4},
            genLepton_fatJet_dR{0.8};
-    double genJet_tau_dR{0.4}, genJet_boostedTau_dR{0.4}, genJet_jet_dR{0.4}, genJet_fatJet_dR{0.8};
-    double tau_boostedTau_dR{0.2}, tau_jet_dR{0.4}, tau_fatJet_dR{0.8};
+    double genJet_tau_dR{0.4}, genJet_jet_dR{0.4}, genJet_fatJet_dR{0.8};
+    double tau_jet_dR{0.4}, tau_fatJet_dR{0.8};
     double jet_fatJet_dR{0.8};
 
     double jet_maxAbsEta{3.4}, fatJet_maxAbsEta{3.8};
 
-    double genLepton_cone{0.5}, genJet_cone{0.5}, tau_cone{0.5}, boostedTau_cone{0.5}, jet_cone{0.8}, fatJet_cone{0.8};
+    double genLepton_cone{0.5}, genJet_cone{0.5}, tau_cone{0.5}, jet_cone{0.8}, fatJet_cone{0.8};
 };
 
 class TauJetBuilder {
@@ -86,7 +80,6 @@ public:
         double dR_genLepton{inf};
         double dR_genJet{inf};
         double dR_tau{inf};
-        double dR_boostedTau{inf};
         double dR_jet{inf};
 
         bool HasMatch() const;
@@ -94,7 +87,6 @@ public:
         void SetDeltaR_genLepton(size_t index_in, double dR_in, double dR_thr);
         void SetDeltaR_genJet(size_t index_in, double dR_in, double dR_thr);
         void SetDeltaR_tau(size_t index_in, double dR_in, double dR_thr);
-        void SetDeltaR_boostedTau(size_t index_in, double dR_in, double dR_thr);
         void SetDeltaR_jet(size_t index_in, double dR_in, double dR_thr);
         void SetDeltaR(size_t index_in, double dR_in, double dR_thr, double& dR_out);
 
@@ -103,10 +95,8 @@ public:
 
     using PolarLorentzVector = reco::LeafCandidate::PolarLorentzVector;
 
-    TauJetBuilder(const TauJetBuilderSetup& setup, const pat::TauCollection& taus,
-                  const pat::TauCollection& boostedTaus, const pat::JetCollection& jets,
+    TauJetBuilder(const TauJetBuilderSetup& setup, const pat::TauCollection& taus, const pat::JetCollection& jets,
                   const pat::JetCollection& fatJets, const pat::PackedCandidateCollection& cands,
-                  const pat::ElectronCollection& electrons, const pat::MuonCollection& muons,
                   const pat::IsolatedTrackCollection& isoTracks, const pat::PackedCandidateCollection& lostTracks,
                   const reco::GenParticleCollection* genParticles, const reco::GenJetCollection* genJets,
                   bool requireGenMatch, bool requireGenORRecoTauMatch, bool applyRecoPtSieve);
@@ -129,12 +119,9 @@ private:
 private:
     const TauJetBuilderSetup& setup_;
     const pat::TauCollection& taus_;
-    const pat::TauCollection& boostedTaus_;
     const pat::JetCollection& jets_;
     const pat::JetCollection& fatJets_;
     const pat::PackedCandidateCollection& cands_;
-    const pat::ElectronCollection& electrons_;
-    const pat::MuonCollection& muons_;
     const pat::IsolatedTrackCollection& isoTracks_;
     const pat::PackedCandidateCollection& lostTracks_;
     const reco::GenParticleCollection* genParticles_;

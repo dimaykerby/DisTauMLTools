@@ -22,7 +22,7 @@ namespace tau_analysis {
 
 bool TauJetBuilder::MatchResult::HasMatch() const
 {
-    return dR_genLepton < inf || dR_genJet < inf || dR_tau < inf || dR_boostedTau || dR_jet < inf;
+    return dR_genLepton < inf || dR_genJet < inf || dR_tau < inf || dR_jet < inf;
 }
 
 void TauJetBuilder::MatchResult::SetDeltaR_genLepton(size_t index_in, double dR_in, double dR_thr)
@@ -38,11 +38,6 @@ void TauJetBuilder::MatchResult::SetDeltaR_genJet(size_t index_in, double dR_in,
 void TauJetBuilder::MatchResult::SetDeltaR_tau(size_t index_in, double dR_in, double dR_thr)
 {
     SetDeltaR(index_in, dR_in, dR_thr, dR_tau);
-}
-
-void TauJetBuilder::MatchResult::SetDeltaR_boostedTau(size_t index_in, double dR_in, double dR_thr)
-{
-    SetDeltaR(index_in, dR_in, dR_thr, dR_boostedTau);
 }
 
 void TauJetBuilder::MatchResult::SetDeltaR_jet(size_t index_in, double dR_in, double dR_thr)
@@ -63,7 +58,6 @@ bool TauJetBuilder::MatchResult::operator <(const TauJetBuilder::MatchResult& ot
     if(dR_genLepton != other.dR_genLepton) return dR_genLepton < other.dR_genLepton;
     if(dR_genJet != other.dR_genJet) return dR_genJet < other.dR_genJet;
     if(dR_tau != other.dR_tau) return dR_tau < other.dR_tau;
-    if(dR_boostedTau != other.dR_boostedTau) return dR_boostedTau < other.dR_boostedTau;
     if(dR_jet != other.dR_jet) return dR_jet < other.dR_jet;
     return index < other.index;
 }
@@ -79,7 +73,6 @@ std::ostream& operator<<(std::ostream& os, const TauJetBuilder::MatchResult& mat
         print_dR(match.dR_genLepton, "dR_genLepton");
         print_dR(match.dR_genJet, "dR_genJet");
         print_dR(match.dR_tau, "dR_tau");
-        print_dR(match.dR_boostedTau, "dR_boostedTau");
         print_dR(match.dR_jet, "dR_jet");
     } else {
         os << "no_match";
@@ -87,15 +80,13 @@ std::ostream& operator<<(std::ostream& os, const TauJetBuilder::MatchResult& mat
     return os;
 }
 
-TauJetBuilder::TauJetBuilder(const TauJetBuilderSetup& setup, const pat::TauCollection& taus,
-              const pat::TauCollection& boostedTaus, const pat::JetCollection& jets,
+TauJetBuilder::TauJetBuilder(const TauJetBuilderSetup& setup, const pat::TauCollection& taus, const pat::JetCollection& jets,
               const pat::JetCollection& fatJets, const pat::PackedCandidateCollection& cands,
-              const pat::ElectronCollection& electrons, const pat::MuonCollection& muons,
               const pat::IsolatedTrackCollection& isoTracks, const pat::PackedCandidateCollection& lostTracks,
               const reco::GenParticleCollection* genParticles, const reco::GenJetCollection* genJets,
               bool requireGenMatch, bool requireGenORRecoTauMatch, bool applyRecoPtSieve) :
-    setup_(setup), taus_(taus), boostedTaus_(boostedTaus), jets_(jets), fatJets_(fatJets), cands_(cands),
-    electrons_(electrons), muons_(muons), isoTracks_(isoTracks), lostTracks_(lostTracks), genParticles_(genParticles),
+    setup_(setup), taus_(taus), jets_(jets), fatJets_(fatJets), cands_(cands),
+    isoTracks_(isoTracks), lostTracks_(lostTracks), genParticles_(genParticles),
     genJets_(genJets), requireGenMatch_(requireGenMatch), requireGenORRecoTauMatch_(requireGenORRecoTauMatch),
     applyRecoPtSieve_(applyRecoPtSieve)
 {
@@ -164,40 +155,6 @@ void TauJetBuilder::Build()
         for(size_t idx : unmatched) {
             TauJet tauJet;
             tauJet.tau.reset(taus_.at(idx), idx);
-            tauJets_.push_back(tauJet);
-        }
-    }
-
-    unmatched = CreateIndexSet(boostedTaus_.size());
-    for(TauJet& tauJet : tauJets_) {
-        MatchResult bestMatch;
-        for(size_t boostedTauIndex = 0; boostedTauIndex < boostedTaus_.size(); ++boostedTauIndex) {
-            const auto& boostedTau = boostedTaus_.at(boostedTauIndex);
-            const auto& p4 = boostedTau.polarP4();
-
-            MatchResult match;
-            if(tauJet.genLepton)
-                match.SetDeltaR_genLepton(boostedTauIndex, deltaR(p4, tauJet.genLepton->visibleP4()),
-                                          setup_.genLepton_boostedTau_dR);
-            if(tauJet.genJet)
-                match.SetDeltaR_genJet(boostedTauIndex, deltaR(p4, tauJet.genJet->polarP4()),
-                                       setup_.genJet_boostedTau_dR);
-            if(tauJet.tau)
-                match.SetDeltaR_tau(boostedTauIndex, deltaR(p4, tauJet.tau->polarP4()), setup_.tau_boostedTau_dR);
-            if(match < bestMatch)
-                bestMatch = match;
-        }
-
-        if(bestMatch.index) {
-            tauJet.boostedTau.reset(boostedTaus_.at(*bestMatch.index), *bestMatch.index);
-            unmatched.erase(*bestMatch.index);
-        }
-    }
-
-    if(!requireGenMatch_) {
-        for(size_t idx : unmatched) {
-            TauJet tauJet;
-            tauJet.boostedTau.reset(boostedTaus_.at(idx), idx);
             tauJets_.push_back(tauJet);
         }
     }
@@ -280,7 +237,7 @@ void TauJetBuilder::Build()
         for(const TauJet& tauJet : tauJets_) {
             const bool is_true_tau = tauJet.genLepton
                     && tauJet.genLepton->kind() == reco_tau::gen_truth::GenLepton::Kind::TauDecayedToHadrons;
-            if(requireGenORRecoTauMatch_ && !(tauJet.tau || tauJet.boostedTau || is_true_tau))
+            if(requireGenORRecoTauMatch_ && !(tauJet.tau || is_true_tau))
                 continue;
             if(applyRecoPtSieve_ && !tauJet.genLepton) {
                 static std::mt19937 gen(12345);
@@ -292,8 +249,6 @@ void TauJetBuilder::Build()
                 double pt = -1;
                 if(tauJet.tau)
                     pt = tauJet.tau->polarP4().pt();
-                if(tauJet.boostedTau)
-                    pt = std::max(pt, tauJet.boostedTau->polarP4().pt());
                 if(pt < 0) continue;
                 if(pt < ref_pt) {
                     double prob_thr = exp_ref / std::exp(slop * pt);
@@ -314,8 +269,6 @@ void TauJetBuilder::Build()
             if(tauJet.genJet && deltaR(p4, tauJet.genJet->polarP4()) < setup_.genJet_cone)
                 return true;
             if(tauJet.tau && deltaR(p4, tauJet.tau->polarP4()) < setup_.tau_cone)
-                return true;
-            if(tauJet.boostedTau && deltaR(p4, tauJet.boostedTau->polarP4()) < setup_.boostedTau_cone)
                 return true;
             if(tauJet.jet && deltaR(p4, tauJet.jet->polarP4()) < setup_.jet_cone)
                 return true;
@@ -343,11 +296,6 @@ void TauJetBuilder::Build()
                 pfCandDesc.tauLeadChargedHadrCand = IsLeadChargedHadrCand(*tauJet.tau, pfCand);
                 pfCandDesc.tauIso = IsTauIsoCand(*tauJet.tau, pfCand);
             }
-            if(tauJet.boostedTau) {
-                pfCandDesc.boostedTauSignal = IsTauSignalCand(*tauJet.boostedTau, pfCand);
-                pfCandDesc.boostedTauLeadChargedHadrCand = IsLeadChargedHadrCand(*tauJet.boostedTau, pfCand);
-                pfCandDesc.boostedTauIso = IsTauIsoCand(*tauJet.boostedTau, pfCand);
-            }
             if(tauJet.jet)
                 pfCandDesc.jetDaughter = IsJetDaughter(*tauJet.jet, pfCand);
             if(tauJet.fatJet)
@@ -364,8 +312,7 @@ void TauJetBuilder::Build()
             tauJet.lostTracks.push_back(pfCandDesc);
         }
 
-        fillMatched(tauJet.electrons, electrons_);
-        fillMatched(tauJet.muons, muons_);
+
         fillMatched(tauJet.isoTracks, isoTracks_);
     }
 }
