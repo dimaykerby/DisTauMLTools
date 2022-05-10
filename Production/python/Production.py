@@ -186,7 +186,7 @@ else:
 tauJetBuilderSetup = cms.PSet(
     genLepton_genJet_dR     = cms.double(0.4),
     genLepton_tau_dR        = cms.double(0.2),
-    genLepton_jet_dR        = cms.double(0.4),
+    genLepton_jet_dR        = cms.double(0.8),
     genLepton_fatJet_dR     = cms.double(0.8),
     genJet_tau_dR           = cms.double(0.4),
     genJet_jet_dR           = cms.double(0.4),
