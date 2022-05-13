@@ -11,3 +11,11 @@
     <use name="boost_program_options"/>
     <use name="TauMLTools/Core"/>
 </bin>
+<!-- <bin name="TargetedSamplingMerge" file="TargetedSamplingMerge.cxx">
+    <use name="boost_program_options"/>
+    <use name="TauMLTools/Core"/>
+</bin> -->
+<bin name="TargetedSamplingHists" file="TargetedSamplingHists.cxx">
+    <use name="boost_program_options"/>
+    <use name="TauMLTools/Core"/>
+</bin>
