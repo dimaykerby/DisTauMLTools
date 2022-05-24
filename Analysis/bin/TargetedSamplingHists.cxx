@@ -25,6 +25,7 @@ struct Arguments {
     run::Argument<std::string> exclude_list{"exclude-list", "comma separated list of files to exclude", ""};
     run::Argument<std::string> exclude_dir_list{"exclude-dir-list","comma separated list of directories to exclude", ""};
     run::Argument<unsigned> n_threads{"n-threads", "number of threads", 1};
+    run::Argument<int> n_files{"n-files", "number of files to process (for all: -1)", -1};
 };
 
 struct HistArgs {
@@ -79,6 +80,8 @@ public:
 
       hists = std::make_shared<HistSpectrum>(outputfile,
              ParseHistSetup(args.pt_hist(),args.eta_hist()));
+
+      if(args.n_files() > 0) input_files.resize(args.n_files());
     }
 
     void Run()

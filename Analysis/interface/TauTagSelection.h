@@ -4,7 +4,7 @@
 #include "TauMLTools/Analysis/interface/AnalysisTypes.h"
 #include "TauMLTools/Core/interface/AnalysisMath.h"
 #include "TauMLTools/Core/interface/exception.h"
-
+#include "TauMLTools/Core/interface/EnumNameMap.h"
 
 namespace JetTypeSelection {
 
@@ -24,6 +24,10 @@ static const double genLepton_jet_dR = 0.4;
 namespace analysis {
 
 enum class JetType { Jet = 0, Tau = 1 };
+ENUM_NAMES(JetType) = {
+    { JetType::Jet, "Jet" },
+    { JetType::Tau, "Tau" }
+};
 
 boost::optional<JetType> GetJetType(const tau_tuple::Tau& tau) {
 
