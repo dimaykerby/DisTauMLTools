@@ -82,6 +82,9 @@ public:
              ParseHistSetup(args.pt_hist(),args.eta_hist()));
 
       if(args.n_files() > 0) input_files.resize(args.n_files());
+
+      counts_filled[JetType::tau] = 0;
+      counts_filled[JetType::jet] = 0;
     }
 
     void Run()
@@ -91,8 +94,14 @@ public:
             auto file = root_ext::OpenRootFile(file_name);
 
             const std::set<std::string> enabled_branches = {
-                  "jet_index", "jet_pt", "jet_eta",
-                  "genJet_pt", "genjet_pt",
+                  "jet_index",
+                  "jet_pt",
+                  "jet_eta",
+                  "jet_phi",
+                  "jet_mass",
+                  "genJet_index",
+                  "genJet_eta",
+                  "genJet_pt",
                   "genLepton_kind",
                   "genLepton_lastMotherIndex",
                   "genParticle_pdgId",
@@ -111,6 +120,7 @@ public:
               };
 
             auto tauTuple = TauTuple("taus", file.get(), true, {}, enabled_branches);
+            // auto tauTuple = TauTuple("taus", file.get(), true);
 
             output_txt << file_name << " " << tauTuple.GetEntries() << "\n";
 
@@ -127,8 +137,9 @@ public:
                   << "Number of tau-jets = " << static_cast<Int_t>(hists->jet_eta_pt("tau").Integral()) << std::endl
                   << "Number of bkgr-jets = " << static_cast<Int_t>(hists->jet_eta_pt("jet").Integral()) << std::endl
                   << "Number of not valid taus = " << static_cast<Int_t>(hists->jet_valid().GetBinContent(2)) << std::endl
-                  << "Number of valid taus = " << static_cast<Int_t>(hists->jet_valid().GetBinContent(3)) << std::endl;
-        
+                  << "Number of valid taus = " << static_cast<Int_t>(hists->jet_valid().GetBinContent(3)) << std::endl
+                  << "Counts filled tau = " << counts_filled[JetType::tau] << std::endl
+                  << "Counts filled jet = " << counts_filled[JetType::jet] << std::endl;
         output_txt.close();
     }
 
@@ -165,21 +176,23 @@ private:
         {
             hists->jet_valid().Fill(1);
             if( JetType_match == JetType::tau)
+              { 
                 hists->jet_eta_pt("tau").Fill(std::abs(tau.jet_eta), tau.jet_pt);
+                counts_filled[JetType::tau]++;
+              }
             else if( JetType_match == JetType::jet)
+              {
                 hists->jet_eta_pt("jet").Fill(std::abs(tau.jet_eta), tau.jet_pt);
+                counts_filled[JetType::jet]++;
+              }
             else
                 throw exception("Error AddJetCandidate: unknown jet type.");
         } else {
-            hists->jet_valid().Fill(0);
+          hists->jet_valid().Fill(0);
         }
 
     }
 
-    bool PassSelection(const Tau& tau) const
-    {
-      return (tau.tau_index >= 0);
-    }
 
   private:
       std::vector<std::string> input_files;
@@ -187,6 +200,7 @@ private:
       std::ofstream output_txt;
       std::shared_ptr<HistSpectrum> hists;
       Int_t total_size=0;
+      std::map<JetType, size_t> counts_filled;
 
 };
 

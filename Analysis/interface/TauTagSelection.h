@@ -15,7 +15,7 @@ static const double genJet_pt = 20; //GeV
 static const double genJet_eta = 2.4;
 
 static const double gen_tau_pt = 10; //GeV
-static const double gen_z = 150; //cm
+static const double gen_z = 100; //cm
 static const double gen_rho = 50; //cm
 static const double genLepton_jet_dR = 0.4;
 

@@ -114,7 +114,9 @@ struct SourceDesc {
             std::cout << "No more entries in: " << name << std::endl;
             return false;
           }
-        while(!current_file_index || current_entry > entries_end) {
+        
+        while(!current_file_index || current_entry > entries_end)
+        {
             if(!current_file_index) current_file_index = spliter.point_entry.file_idx ;
             else ++(*current_file_index);
             if(*current_file_index >= file_names.size())
@@ -371,7 +373,7 @@ public:
             n_processed++;
             (*output_tuple)() = tau;
             output_tuple->Fill();
-            if(n_processed % 1000 == 0) {
+            if(n_processed % 10000 == 0) {
                 std::cout << n_processed << " is selected" << std::endl;
             }
             if(n_processed>=args.max_entries() ){
