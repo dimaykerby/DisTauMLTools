@@ -47,6 +47,7 @@
     VAR(ULong64_t, dataset_id) /* ID of the dataset (needed to identify the original dataset after shuffle&merge) */ \
     VAR(ULong64_t, dataset_group_id) /* ID of the dataset group (needed to identify the original dataset group
                                     after shuffle&merge) */ \
+    VAR(Int_t, jetType) /* type of the Jet ( jet = 0, tau = 1 ) */ \
     VAR(Float_t, npu) /* number of in-time pu interactions added to the event */ \
     VAR4(Float_t, pv_x, pv_y, pv_z, pv_t) /* position and time of the primary vertex (PV) */ \
     VAR4(Float_t, pv_xE, pv_yE, pv_zE, pv_tE) /* position and time errors of the primary vertex (PV) */ \

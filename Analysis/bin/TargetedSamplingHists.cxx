@@ -164,9 +164,9 @@ private:
         if(JetType_match != boost::none)
         {
             hists->jet_valid().Fill(1);
-            if( JetType_match == JetType::Tau)
+            if( JetType_match == JetType::tau)
                 hists->jet_eta_pt("tau").Fill(std::abs(tau.jet_eta), tau.jet_pt);
-            else if( JetType_match == JetType::Jet)
+            else if( JetType_match == JetType::jet)
                 hists->jet_eta_pt("jet").Fill(std::abs(tau.jet_eta), tau.jet_pt);
             else
                 throw exception("Error AddJetCandidate: unknown jet type.");

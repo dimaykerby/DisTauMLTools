@@ -23,10 +23,10 @@ static const double genLepton_jet_dR = 0.4;
 
 namespace analysis {
 
-enum class JetType { Jet = 0, Tau = 1 };
+enum class JetType { jet = 0, tau = 1 };
 ENUM_NAMES(JetType) = {
-    { JetType::Jet, "Jet" },
-    { JetType::Tau, "Tau" }
+    { JetType::jet, "jet" },
+    { JetType::tau, "tau" }
 };
 
 boost::optional<JetType> GetJetType(const tau_tuple::Tau& tau) {
@@ -69,13 +69,13 @@ boost::optional<JetType> GetJetType(const tau_tuple::Tau& tau) {
                     ( tau.jet_pt, tau.jet_eta, tau.jet_phi, tau.jet_mass );
 
                 double dR = ROOT::Math::VectorUtil::DeltaR(jet_p4, genLeptons.visibleP4());
-                if( dR < JetTypeSelection::genLepton_jet_dR ) return JetType::Tau;
+                if( dR < JetTypeSelection::genLepton_jet_dR ) return JetType::tau;
             }
 
         } else if( tau.genJet_index >= 0 &&
                    tau.genJet_pt > JetTypeSelection::genJet_pt && 
                    std::abs(tau.genJet_eta) < JetTypeSelection::genJet_eta )
-                    return JetType::Jet;
+                    return JetType::jet;
     }
     return boost::none;
 

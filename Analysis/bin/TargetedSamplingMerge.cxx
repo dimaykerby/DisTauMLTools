@@ -300,12 +300,10 @@ public:
     using Tau = tau_tuple::Tau;
     using TauTuple = tau_tuple::TauTuple;
 
-    const std::set<JetType> ttypes; // vector of tau types (jets, taus)
-
     SpectrumHists(const std::string& groupname_,
                   const std::vector<double>& pt_bins,
                   const std::vector<double>& eta_bins,
-                  const std::set<TauType>& tau_types_):
+                  const std::set<JetType>& tau_types_):
                   groupname(groupname_),
                   ttypes(tau_types_)
     {
@@ -328,11 +326,11 @@ public:
     { 
       // Following  
       std::shared_ptr<TFile> current_file = std::make_shared<TFile>(path_spectrum_file.c_str());
-      for (TauType type: ttypes)
+      for (JetType type: ttypes)
       {
         std::shared_ptr<TH2D> hist_ttype((TH2D*)current_file->Get(("jet_eta_pt_"+ToString(type)).c_str()));
         if (!hist_ttype)
-          throw exception("TauType: '%1%' is not available at '%2%'")
+          throw exception("JetType: '%1%' is not available at '%2%'")
           % ToString(type) % path_spectrum_file;
         root_ext::RebinAndFill(*ttype_entries[type], *hist_ttype);
         n_entries += hist_ttype->GetEntries();
@@ -340,11 +338,11 @@ public:
     }
 
 
-    void CalculateProbability(const std::string& signal_type)
+    void CalculateProbability(const JetType signal_type)
     {
-      for (TauType type: ttypes)
+      for (JetType type: ttypes)
       {
-        std::shared_ptr<TH2D> ratio_h(ttype_entries[type]->Clone());
+        std::shared_ptr<TH2D> ratio_h((TH2D*)ttype_entries[type]->Clone());
 
         if(CheckZeros(ratio_h))
           throw exception("Empty histogram for tau type '%1%' in '%2%'.")
@@ -376,42 +374,51 @@ public:
       }
     }
 
-    const std::map<TauType, Double_t> GetEntriesFinal() const
-    {
-      // This part is calculation how much events we have 
-      // when rejecting with some probability
-      std::map<TauType, Double_t> EntriesFinal;
-      for (TauType type: ttypes)
-      {
-        std::shared_ptr<TH2D> entries_count((TH2D*)ttype_entries.at(type)->Clone());
-        for(int i_x = 1; i_x<=ttype_prob.at(type)->GetNbinsX(); i_x++)
-          for(int i_y = 1; i_y<=ttype_prob.at(type)->GetNbinsY(); i_y++)
-            entries_count->SetBinContent(i_x,i_y,
-              entries_count->GetBinContent(i_x,i_y)*ttype_prob.at(type)->GetBinContent(i_x,i_y)
-            );
-        EntriesFinal[type] = entries_count->Integral();
-      }
-      return EntriesFinal;
-    }
+    // const std::map<JetType, Double_t> GetEntriesFinal() const
+    // {
+    //   // This part is calculation how much events we have 
+    //   // when rejecting with some probability
+    //   std::map<JetType, Double_t> EntriesFinal;
+    //   for (JetType type: ttypes)
+    //   {
+    //     std::shared_ptr<TH2D> entries_count((TH2D*)ttype_entries.at(type)->Clone());
+    //     for(int i_x = 1; i_x<=ttype_prob.at(type)->GetNbinsX(); i_x++)
+    //       for(int i_y = 1; i_y<=ttype_prob.at(type)->GetNbinsY(); i_y++)
+    //         entries_count->SetBinContent(i_x,i_y,
+    //           entries_count->GetBinContent(i_x,i_y)*ttype_prob.at(type)->GetBinContent(i_x,i_y)
+    //         );
+    //     EntriesFinal[type] = entries_count->Integral();
+    //   }
+    //   return EntriesFinal;
+    // }
 
-    const double GetProbability(const TauType& type, const double& pt, const double& eta) const
-    {
-      return ttype_prob.at(type)->GetBinContent(
-             ttype_prob.at(type)->GetXaxis()->FindBin(eta),
-             ttype_prob.at(type)->GetYaxis()->FindBin(pt));
-    }
+    // const double GetProbability(const TauType& type, const double& pt, const double& eta) const
+    // {
+    //   return ttype_prob.at(type)->GetBinContent(
+    //          ttype_prob.at(type)->GetXaxis()->FindBin(eta),
+    //          ttype_prob.at(type)->GetYaxis()->FindBin(pt));
+    // }
 
     void SaveHists(const std::string& output)
     {
       if(!boost::filesystem::exists(output)) boost::filesystem::create_directory(output);
       TFile file = TFile((output+"/"+groupname+".root").c_str(),"RECREATE");
-      for (TauType type: ttypes)
+      for (JetType type: ttypes)
         ttype_prob[type]->Write((ToString(type)+"_prob").c_str());
       file.Close();
       TFile file_n = TFile((output+"/"+groupname+"_n.root").c_str(),"RECREATE");
-      for (TauType type: ttypes)
+      for (JetType type: ttypes)
         ttype_entries[type]->Write((ToString(type)+"_entries").c_str());
       file_n.Close();
+    }
+
+    static bool CheckZeros(const std::shared_ptr<TH2D>& hist)
+    {
+      for(Int_t i_pt = 1; i_pt <= hist->GetNbinsY(); i_pt++)
+        for(Int_t i_eta = 1; i_eta <= hist->GetNbinsX(); i_eta++)
+          if(hist->GetBinContent(i_eta,i_pt)==0)
+            return true;
+      return false;
     }
 
     const size_t GetEntries() { return n_entries; }
@@ -420,8 +427,9 @@ public:
 
 private:
   const std::string& groupname;
-  std::map<TauType, std::shared_ptr<TH2D>> ttype_entries; // pair<tau_type, probability_hist>
-  std::map<TauType, std::shared_ptr<TH2D>> ttype_prob; // pair<tau_type, probability_hist>
+  const std::set<JetType> ttypes; // vector of tau types (jets, taus)
+  std::map<JetType, std::shared_ptr<TH2D>> ttype_entries; // pair<tau_type, probability_hist>
+  std::map<JetType, std::shared_ptr<TH2D>> ttype_prob; // pair<tau_type, probability_hist>
   size_t n_entries; // needed for monitoring
   std::shared_ptr<TH2D> target_hist;
 
@@ -438,14 +446,15 @@ public:
     DataSetProcessor(const std::vector<EntryDesc>& entries, const std::vector<double>& pt_bins,
                      const std::vector<double>& eta_bins, Generator& _gen,
                      const std::set<std::string>& disabled_branches, bool verbose,
-                     const std::map<TauType, Double_t>& tau_ratio) :
+                     const std::map<JetType, Double_t>& tau_ratio,
+                     const std::string& singal_type) :
                      pt_max(pt_bins.back()), pt_min(pt_bins[0]), eta_max(eta_bins.back()), gen(&_gen)
     {
       if(verbose) std::cout << "1. Loading Data Groups." << std::endl;
       LoadDataGroups(entries, pt_bins, eta_bins, disabled_branches);
 
       if(verbose) std::cout << "2. Calculating probabilities." << std::endl;
-      for(auto spectrum: spectrums) spectrum.second->CalculateProbability();
+      for(auto spectrum: spectrums) spectrum.second->CalculateProbability(Parse<JetType>(singal_type));
 
       if(verbose) std::cout << "Saving histograms..." << std::endl;
       for(auto spectrum: spectrums) spectrum.second->SaveHists("./out");
@@ -544,7 +553,9 @@ private:
                         const std::vector<double>& eta_bins,
                         const std::set<std::string>& disabled_branches)
     {
-      for(const EntryDesc& dsc: entries) {
+      for(const EntryDesc& dsc: entries)
+      {
+        std::cout << "LoadDataGroup: " << dsc.name << "\n";
 
         // std::shared_ptr<SourceDesc> source = std::make_shared<SourceDesc>(dsc.name,
         //                     dsc.total_entries, dsc.name_hash,
@@ -627,7 +638,7 @@ private:
 
 private:
     std::string current_datagroup;
-    std::map<std::string, std::shared_ptr<SourceDesc>> sources; // pair<datagroup_name, source>
+    // std::map<std::string, std::shared_ptr<SourceDesc>> sources; // pair<datagroup_name, source>
     std::map<std::string, std::shared_ptr<SpectrumHists>> spectrums; // pair<datagroup_name, histogram>
     std::vector<Double_t> datagroup_probs; // probability of getting datagroup
     std::vector<std::string> datagroup_names; // corresponding datagroup name
@@ -678,7 +689,7 @@ public:
             std::cout << sp << std::endl;
         }
       }
-
+      global_entry = all_entries;
     }
 
     void Run()
@@ -696,7 +707,8 @@ public:
       auto output_tuple = std::make_shared<TauTuple>("taus", output_file.get(), false);
 
       DataSetProcessor processor(entry_list, pt_bins, eta_bins,
-                                  gen, disabled_branches, true, tau_ratio);
+                                 gen, disabled_branches, true,
+                                 tau_ratio, args.signal_type());
 
       // size_t n_processed = 0;
       // std::cout << "starting loops:" <<std::endl;
@@ -737,15 +749,15 @@ private:
         return entries;
     }
 
-    static std::map<TauType, Double_t> ParseTauTypesR(const std::string& bins_str)
+    static std::map<JetType, Double_t> ParseTauTypesR(const std::string& bins_str)
     {
-      std::map<TauType, Double_t> tau_ratio;
+      std::map<JetType, Double_t> tau_ratio;
       const auto& split_strs = SplitValueList(bins_str, true, ", \t", true);
       std::cout << "ratio among tau types: " << std::endl;
       for(const std::string& str_ : split_strs) {
         if(str_.empty()) continue;
         const auto& sub_split = SplitValueList(str_, true, ":", true);
-        TauType tautype = Parse<TauType>(sub_split[0]);
+        JetType tautype = Parse<JetType>(sub_split[0]);
         Double_t ratio = Parse<double>(sub_split[1]);
         tau_ratio[tautype] = ratio;
         std::cout << tautype << ":" <<  ratio << " ";
@@ -790,7 +802,7 @@ private:
     Arguments args;
     std::vector<EntryDesc> global_entry;
     const std::vector<double> pt_bins, eta_bins;
-    std::map<TauType, Double_t> tau_ratio;
+    std::map<JetType, Double_t> tau_ratio;
     std::set<std::string> disabled_branches;
     const size_t max_entries;
     const UInt_t parity;
