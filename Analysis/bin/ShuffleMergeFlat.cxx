@@ -69,7 +69,7 @@ struct Arguments {
     run::Argument<std::string> cfg{"cfg", "configuration file with the list of input sources", ""};
     run::Argument<std::string> input{"input", "Input file with the list of files to read. ", ""};
     run::Argument<std::string> output{"output", "output", ""};
-    run::Argument<size_t> file_entries{"file-entries", "maximal number of entries per one file", std::numeric_limits<size_t>::max()};
+    // run::Argument<size_t> file_entries{"file-entries", "maximal number of entries per one file", std::numeric_limits<size_t>::max()};
     run::Argument<size_t> max_entries{"max-entries", "maximal number of entries processed", std::numeric_limits<size_t>::max()};
     run::Argument<unsigned> n_threads{"n-threads", "number of threads", 1};
     run::Argument<unsigned> seed{"seed", "random seed to initialize the generator used for sampling", 1234567};
@@ -78,7 +78,6 @@ struct Arguments {
     run::Argument<unsigned> compression_level{"compression-level", "compression level of output file", 9};
     run::Argument<unsigned> job_idx{"job-idx", "index of the job (starts from 0)"};
     run::Argument<unsigned> n_jobs{"n-jobs", "the number by which to divide all files"};
-    run::Argument<std::string> signal_type{"signal-type", "Type of the signal which will not be rejected (by default: tau)", "tau"};
 };
 
 struct SourceDesc {
@@ -357,9 +356,10 @@ public:
         Generator gen(args.seed());
 
         std::cout << "Output template: " << args.output() << std::endl;
-        int file_n = 0;
+        // int file_n = 0;
         std::string file_name_temp = args.output().substr(0,args.output().find_last_of("."));
-        std::string file_name = file_name_temp + "_" + std::to_string(file_n++) + ".root";
+        // std::string file_name = file_name_temp + "_" + std::to_string(file_n++) + ".root";
+        std::string file_name = file_name_temp + ".root";
         auto output_file = root_ext::CreateRootFile(file_name, compression, args.compression_level());
         auto output_tuple = std::make_shared<TauTuple>("taus", output_file.get(), false);
 
@@ -380,13 +380,13 @@ public:
                 std::cout << "Stop: number of entries exceeded max_entries" << std::endl;
                 break;
             }
-            if(n_processed>0 && (n_processed % args.file_entries() == 0)) {
-                output_tuple->Write();
-                output_tuple.reset();
-                std::string file_name = file_name_temp + "_" + std::to_string(file_n++) + ".root";
-                output_file = root_ext::CreateRootFile(file_name, compression, args.compression_level());
-                output_tuple = std::make_shared<TauTuple>("taus", output_file.get(), false);
-            } 
+            // if(n_processed>0 && (n_processed % args.file_entries() == 0)) {
+            //     output_tuple->Write();
+            //     output_tuple.reset();
+            //     std::string file_name = file_name_temp + "_" + std::to_string(file_n++) + ".root";
+            //     output_file = root_ext::CreateRootFile(file_name, compression, args.compression_level());
+            //     output_tuple = std::make_shared<TauTuple>("taus", output_file.get(), false);
+            // } 
         }
         output_tuple->Write();
         output_tuple.reset();

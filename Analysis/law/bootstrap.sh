@@ -7,12 +7,12 @@
 # base tasks in analysis/framework.py.
 
 action() {
-  luigid --port 8082 --background --logdir ./luigid_logdir
+  # luigid --port 8082 --background --logdir ./luigid_logdir
 
-  which eosfusebind
-  if [ $? -eq 0 ]; then
-    eosfusebind -g
-  fi
+  # which eosfusebind
+  # if [ $? -eq 0 ]; then
+  #   eosfusebind -g
+  # fi
 
   export PYTHONPATH={{pythonpath}}:$PYTHONPATH
   export PATH={{path}}:$PATH
@@ -22,7 +22,9 @@ action() {
     eval `scramv1 runtime -sh`
     popd
     source "{{analysis_path}}/setup.sh"
+    source "/afs/desy.de/user/r/riegerma/public/law_sw/setup.sh" ""
     source "$( law completion )" ""
+
   elif [ "{{environment}}" == "conda" ]; then
     echo "Will use conda inside {{conda_path}}"
     echo "Will use conda environment {{conda_env}}"
