@@ -53,24 +53,24 @@ Setup:
 SetupNN:
     
     model_name           : "TauJetTagSNN"
-    n_batches            : 200
+    n_batches            : -1
     n_batches_val        : -1
     n_batches_log        : 100
-
     epoch                : 0
-    n_epochs             : 20
-    validation_split     : 0.1
-    max_queue_size       : 15
-    n_load_workers       : 1
+    n_epochs             : 1
+
+    validation_split     : 0.3
+    max_queue_size       : 10
+    n_load_workers       : 4
 
     learning_rate        : 0.001
-    n_gnn_layers         : 10
+    n_gnn_layers         : 6
     n_dim_gnn            : 2
     n_output_gnn         : 50
     n_output_gnn_last    : 30
-    n_dense_layers       : 4
-    n_dense_nodes        : 200
-    wiring_mode          : "m3"
+    n_dense_layers       : 3
+    n_dense_nodes        : 100
+    wiring_mode          : "m1"
     dropout_rate         : 0.1 
     regu_rate            : 0.01
 

@@ -220,20 +220,31 @@ public:
             return tau.pfCand_pt.at(a) > tau.pfCand_pt.at(b);
         });
         
-        size_t upper_index = std::min(Setup::nSeq_PfCand, indices.size());
-        for(size_t pfCand_i = 0; pfCand_i < upper_index; pfCand_i++)
+        // size_t upper_index = std::min(Setup::nSeq_PfCand, indices.size());
+        size_t index_size = indices.size();
+
+        size_t pf_data_index = 0;
+        size_t pf_input_index = 0;
+
+        // for(size_t pfCand_i = 0; pfCand_i < upper_index; pfCand_i++)
+        // {
+        while( pf_data_index < Setup::nSeq_PfCand && pf_input_index < index_size)
         {
+
+            size_t idx_srt = indices.at(pf_input_index);
+            ++pf_input_index;
+
+            if(!tau.pfCand_jetDaughter.at(idx_srt)) continue;
+            
             auto getVecRef = [&](auto _fe, Float_t value){
                 size_t _feature_idx = static_cast<size_t>(_fe);
                 if(_feature_idx < 0) return;
                 const size_t start_index =  FeaturesHelper<decltype(_fe)>::length * FeaturesHelper<decltype(_fe)>::size * tau_i;
-                const size_t index = start_index + FeaturesHelper<decltype(_fe)>::size * pfCand_i + _feature_idx;
+                const size_t index = start_index + FeaturesHelper<decltype(_fe)>::size * pf_data_index + _feature_idx;
                 data->x[FeaturesHelper<decltype(_fe)>::object_type].at(index) = 
                     Scale<typename  FeaturesHelper<decltype(_fe)>::scaler_type>(
                         _feature_idx, value, false);
             };
-
-            size_t idx_srt = indices.at(pfCand_i);
 
             {   // Categorical features
                 typedef PfCandCategorical_Features Br;
@@ -284,6 +295,8 @@ public:
                     getVecRef(PfCand_Features::pfCand_dphi, DeltaPhi<Float_t>(tau.pfCand_phi.at(idx_srt), jet_phi));
                 }
             }
+
+            ++pf_data_index;
         }
       }
 
