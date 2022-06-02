@@ -7,9 +7,9 @@ sys.path.insert(0, "..")
 from common import *
 import DataLoaderReco
 
-with open(os.path.abspath( "../../configs/trainingReco_v1.yaml")) as f:
+with open(os.path.abspath( "../../configs/trainingDisTauTag_v1.yaml")) as f:
     config = yaml.safe_load(f)
-scaling  = os.path.abspath("../../configs/scaling_params_vReco_v1_stau.json")
+scaling  = os.path.abspath("../../configs/scaling_params_vDisTauTag_v1.json")
 dataloader = DataLoaderReco.DataLoader(config, scaling)
 
 gen_train = dataloader.get_generator(primary_set = True)

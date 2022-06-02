@@ -15,26 +15,45 @@ def LoaderThread(queue_out,
                  return_weights):
 
 
+    def DataProcess(data):
+
+        X_all = tuple(GetData.getsequence(data.x, data.tau_i, batch_size, input_grids, n_sequence, n_features))
+
+        if return_weights:
+            weights = GetData.getdata(data.weights, data.tau_i, -1, debug_area="weights")
+        if return_truth:
+            Y = GetData.getdata(data.y, data.tau_i, (batch_size, output_classes), debug_area="truth")
+
+        if return_truth and return_weights:
+            item = [X_all, Y, weights]
+        elif return_truth:
+            item = [X_all, Y]
+        elif return_weights:
+            item = [X_all, weights]
+        else:
+            item = X_all
+
+        return item
+
     data_source = DataSource(queue_files)
     put_next = True
 
     while put_next:
 
         data = data_source.get()
-        if data is None:
-            break
-
-        X_all = tuple(GetData.getsequence(data.x, batch_size, input_grids, n_sequence, n_features))
-        if return_truth:
-            Y = GetData.getdata(data.y, (batch_size, output_classes))
-            item = (X_all, Y)
-        else:
-            item = X_all
-        
+        if data is None: break
+        item = DataProcess(data)
         put_next = queue_out.put(item)
 
     queue_out.put_terminate(identifier)
-    terminators[identifier].wait()
+    terminators[identifier][0].wait()
+
+    if (data := data_source.get_remains()) is not None:
+        item = DataProcess(data)
+        _ = queue_out.put(item)
+
+    queue_out.put_terminate(identifier)
+    terminators[identifier][1].wait()
 
 class DataLoader (DataLoaderBase):
 
@@ -99,7 +118,8 @@ class DataLoader (DataLoaderBase):
 
             processes = []
             n_load_workers = self.config["SetupNN"]["n_load_workers"]
-            terminators = [ mp.Event() for _ in range(n_load_workers) ]
+            terminators = [ [mp.Event(),mp.Event()] for _ in range(n_load_workers) ]
+
             for i in range(n_load_workers):
                 processes.append(
                 mp.Process(target = LoaderThread, 
@@ -114,16 +134,35 @@ class DataLoader (DataLoaderBase):
                                    return_weights)))
                 processes[-1].start()
 
+            # First part to iterate through the main part
+            finish_counter = 0
             while finish_counter < n_load_workers:
                 item = queue_out.get()
                 if isinstance(item, int):
                     finish_counter+=1
-                    terminators[item].set()
                 else:
                     yield converter(item)
-                    
-            ugly_clean(queue_files)
+            for i in range(n_load_workers):
+                terminators[i][0].set()
+
+            # Second part to collect remains
+            collector = Collector(self.config["Setup"]["n_tau"])
+            finish_counter = 0
+            while finish_counter < n_load_workers:
+                item = queue_out.get()
+                if isinstance(item, int):
+                    finish_counter+=1
+                else:
+                    collector.fill(item)
+            remains = collector.get()
+            if remains is not None:
+                for item in remains:
+                    yield item
+            for i in range(n_load_workers):
+                terminators[i][1].set()
+
             queue_out.clear()
+            ugly_clean(queue_files)
 
             for i, pr in enumerate(processes):
                 pr.join()
