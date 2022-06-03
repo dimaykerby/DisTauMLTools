@@ -1,9 +1,11 @@
 # will update baseline training cfg (retrieved from run artifacts) with these parameters
 training_cfg_upd:
   Setup:
-    n_tau: 250
-    dataloader_core: "TauMLTools/Training/interface/DataLoader_main.h"
+    n_tau: 500
+    dataloader_core: "TauMLTools/Training/interface/DataLoaderDisTauTag_main.h"
+    recompute_jet_type   : True
     debug: False
+    input_type  : "ROOT"
   SetupNN:
     n_batches: -1
     n_batches_val: -1
@@ -18,7 +20,7 @@ run_id: ???
 
 # training/scaling cfg to init DataLoader class
 path_to_training_cfg: ${path_to_mlflow}/${experiment_id}/${run_id}/artifacts/input_cfg/training_cfg.yaml
-scaling_cfg: ${path_to_mlflow}/${experiment_id}/${run_id}/artifacts/input_cfg/ShuffleMergeSpectral_trainingSamples-2_files_0_498.json
+scaling_cfg: ${path_to_mlflow}/${experiment_id}/${run_id}/artifacts/input_cfg/scaling_params_vDisTauTag_v1.json
 
 # input path and file name
 path_to_input_dir: ???

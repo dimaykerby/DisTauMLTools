@@ -7,7 +7,7 @@ from scipy import interpolate
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+# from matplotlib.backends.backend_pdf import PdfPages
 from eval_tools import select_curve, create_roc_ratio
 
 class RocCurve:
@@ -41,11 +41,12 @@ class RocCurve:
 
         if ref_roc is None:
             ref_roc = self
-
-        if WPcurve:
             self.ratio = None
-        else:
-            self.ratio = create_roc_ratio(self.pr[1], self.pr[0], ref_roc.pr[1], ref_roc.pr[0], True)
+
+        # if WPcurve:
+        #     self.ratio = None
+        # else:
+        #     self.ratio = create_roc_ratio(self.pr[1], self.pr[0], ref_roc.pr[1], ref_roc.pr[0], True)
 
     def Draw(self, ax, ax_ratio = None):
         main_plot_adjusted = False
@@ -108,6 +109,7 @@ class PlotSetup:
 
         ax.set_yscale(self.yscale)
         ax.set_ylabel(self.ylabel, fontsize=16)
+        ax.set_xlabel('Tau ID efficiency', fontsize=16)
         ax.tick_params(labelsize=14)
         ax.grid(True)
         lentries = []
@@ -137,8 +139,8 @@ from omegaconf import OmegaConf, DictConfig
 def main(cfg: DictConfig) -> None:
     path_to_mlflow = to_absolute_path(cfg.path_to_mlflow)
     mlflow.set_tracking_uri(f"file://{path_to_mlflow}")
-    dmname = '_'.join([str(x) for x in cfg.dm_bin])
-    path_to_pdf = f'./{cfg.output_name}{dmname}.pdf' # hydra log directory
+    # dmname = '_'.join([str(x) for x in cfg.dm_bin])
+    path_to_pdf = f'./{cfg.output_name}.png' # hydra log directory
     print()
 
     # retrieve pt bin from input cfg 
@@ -146,8 +148,8 @@ def main(cfg: DictConfig) -> None:
     pt_min, pt_max = cfg.pt_bin[0], cfg.pt_bin[1]
     assert len(cfg.eta_bin)==2 and cfg.eta_bin[0] <= cfg.eta_bin[1]
     eta_min, eta_max = cfg.eta_bin[0], cfg.eta_bin[1]
-    assert len(cfg.dm_bin)>=1
-    dm_bin = cfg.dm_bin
+    # assert len(cfg.dm_bin)>=1
+    # dm_bin = cfg.dm_bin
 
     # retrieve reference curve
     if len(cfg.reference)>1:
@@ -158,7 +160,7 @@ def main(cfg: DictConfig) -> None:
     with open(reference_json, 'r') as f:
         ref_discr_data = json.load(f)
     ref_curve = select_curve(ref_discr_data['metrics'][ref_curve_type], 
-                                pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max, dm_bin=dm_bin, vs_type=cfg.vs_type,
+                                pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max, vs_type=cfg.vs_type,
                                 dataset_alias=cfg.dataset_alias)
     if ref_curve is None:
         raise RuntimeError('[INFO] didn\'t manage to retrieve a reference curve from performance.json')
@@ -166,47 +168,53 @@ def main(cfg: DictConfig) -> None:
 
     curves_to_plot = []
     curve_names = []
-    with PdfPages(path_to_pdf) as pdf:
-        for discr_name, curve_types in cfg.discriminators.items():
-            # retrieve discriminator data from corresponding json 
-            json_file = f'{path_to_mlflow}/{cfg.experiment_id}/{discr_name}/artifacts/performance.json'
-            with open(json_file, 'r') as f:
-                discr_data = json.load(f)
+    # with PdfPages(path_to_pdf) as pdf:
+    for discr_name, curve_types in cfg.discriminators.items():
+        # retrieve discriminator data from corresponding json 
+        json_file = f'{path_to_mlflow}/{cfg.experiment_id}/{discr_name}/artifacts/performance.json'
+        with open(json_file, 'r') as f:
+            discr_data = json.load(f)
 
-            for curve_type in curve_types: 
-                discr_curve = select_curve(discr_data['metrics'][curve_type], 
-                                            pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max, dm_bin=dm_bin, vs_type=cfg.vs_type,
-                                            dataset_alias=cfg.dataset_alias)
-                if discr_curve is None:
-                    print(f'[INFO] Didn\'t manage to retrieve a curve ({curve_type}) for discriminator ({discr_name}) from performance.json. Will proceed without plotting it.')
-                    continue
-                # elif (discr_name==ref_discr_name and curve_type==ref_curve_type) or ('wp' in curve_type and any('curve' in ctype for ctype in curve_types)): # Temporary: Don't make ratio for 'roc_wp' if there's a ratio for 'roc_curve' already
-                elif (discr_name==ref_discr_name and curve_type==ref_curve_type):
-                    curves_to_plot.append(RocCurve(discr_curve, ref_roc=None))
-                else:
-                    curves_to_plot.append(RocCurve(discr_curve, ref_roc=ref_roc, WPcurve='wp' in curve_type))
-                curve_names.append(discr_data['name'])
+        for curve_type in curve_types: 
+            discr_curve = select_curve(discr_data['metrics'][curve_type], 
+                                        pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max, vs_type=cfg.vs_type,
+                                        dataset_alias=cfg.dataset_alias)
+            if discr_curve is None:
+                print(f'[INFO] Didn\'t manage to retrieve a curve ({curve_type}) for discriminator ({discr_name}) from performance.json. Will proceed without plotting it.')
+                continue
+            # elif (discr_name==ref_discr_name and curve_type==ref_curve_type) or ('wp' in curve_type and any('curve' in ctype for ctype in curve_types)): # Temporary: Don't make ratio for 'roc_wp' if there's a ratio for 'roc_curve' already
+            # elif (discr_name==ref_discr_name and curve_type==ref_curve_type):
+            #     curves_to_plot.append(RocCurve(discr_curve, ref_roc=None))
+            # else:
+            #     curves_to_plot.append(RocCurve(discr_curve, ref_roc=ref_roc, WPcurve='wp' in curve_type))
+            
+            curves_to_plot.append(RocCurve(discr_curve, WPcurve='wp' in curve_type))
+            curve_names.append(discr_data['name'])
 
-        fig, (ax, ax_ratio) = plt.subplots(2, 1, figsize=(7, 7), sharex=True, gridspec_kw = {'height_ratios':[3, 1]})
-        plot_entries = []
-        for curve_to_plot in curves_to_plot:
-            plot_entry = curve_to_plot.Draw(ax, ax_ratio)
-            plot_entries.append(plot_entry)
+    fig, ax = plt.subplots(figsize=(7, 7), sharex=True)
+    plot_entries = []
+    for curve_to_plot in curves_to_plot:
+        plot_entry = curve_to_plot.Draw(ax)
+        plot_entries.append(plot_entry)
 
-        plot_setup = PlotSetup(ref_curve['plot_setup'])
-        plot_setup.Apply(curve_names, plot_entries, ax, ax_ratio)
+    plot_setup = PlotSetup(ref_curve['plot_setup'])
+    plot_setup.Apply(curve_names, plot_entries, ax, ax_ratio=None)
 
-        header_y = 1.02
-        ax.text(0.03, 0.89 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['pt_text'], fontsize=14, transform=ax.transAxes)
-        ax.text(0.03, 0.82 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['eta_text'], fontsize=14, transform=ax.transAxes)
-        ax.text(0.03, 0.75 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['dm_text'], fontsize=14, transform=ax.transAxes)
-        ax.text(0.01, header_y, 'CMS', fontsize=14, transform=ax.transAxes, fontweight='bold', fontfamily='sans-serif')
-        ax.text(0.12, header_y, 'Simulation Preliminary', fontsize=14, transform=ax.transAxes, fontstyle='italic',
-                fontfamily='sans-serif')
-        ax.text(0.73, header_y, ref_discr_data['period'], fontsize=13, transform=ax.transAxes, fontweight='bold',
-                fontfamily='sans-serif')
-        plt.subplots_adjust(hspace=0)
-        pdf.savefig(fig, bbox_inches='tight')
+    header_y = 1.02
+    ax.text(0.03, 0.89 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['pt_text'], fontsize=14, transform=ax.transAxes)
+    ax.text(0.03, 0.82 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['eta_text'], fontsize=14, transform=ax.transAxes)
+    # ax.text(0.03, 0.75 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['dm_text'], fontsize=14, transform=ax.transAxes)
+    ax.text(0.01, header_y, 'CMS', fontsize=14, transform=ax.transAxes, fontweight='bold', fontfamily='sans-serif')
+    ax.text(0.12, header_y, 'Simulation Preliminary', fontsize=14, transform=ax.transAxes, fontstyle='italic',
+            fontfamily='sans-serif')
+    ax.text(0.73, header_y, ref_discr_data['period'], fontsize=13, transform=ax.transAxes, fontweight='bold',
+            fontfamily='sans-serif')
+    plt.subplots_adjust(hspace=0)
+    plt.savefig(path_to_pdf, bbox_inches='tight')
+    plt.figure().clear()
+    plt.close()
+    plt.cla()
+    plt.clf()
 
     with mlflow.start_run(experiment_id=cfg.experiment_id, run_id=list(cfg.discriminators.keys())[0]):
         mlflow.log_artifact(path_to_pdf, 'plots')

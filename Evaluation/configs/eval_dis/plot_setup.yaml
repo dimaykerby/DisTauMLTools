@@ -1,0 +1,12 @@
+plot_setup: ${.plot_setup_map.${vs_type}}
+
+plot_setup_map: 
+ 
+  jet:
+    public_plots: True 
+    inequality_in_title: False 
+    ylabel: 'Jet mis-id probability'
+    ratio_ylabel_pad: 30
+    xlim: [0.1, 1]
+    ylim: [1e-4, 1]
+    ratio_ylim: [0.99, 1.01]

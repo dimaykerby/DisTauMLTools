@@ -17,7 +17,7 @@ def LoaderThread(queue_out,
 
     def DataProcess(data):
 
-        X_all = tuple(GetData.getsequence(data.x, data.tau_i, batch_size, input_grids, n_sequence, n_features))
+        X_all = GetData.getsequence(data.x, data.tau_i, batch_size, input_grids, n_sequence, n_features)
 
         if return_weights:
             weights = GetData.getdata(data.weights, data.tau_i, -1, debug_area="weights")
@@ -92,6 +92,38 @@ class DataLoader (DataLoaderBase):
         print("Files for training:", len(self.train_files))
         print("Files for validation:", len(self.val_files))
 
+    def get_predict_generator(self, return_truth=True, return_weights=False):
+        '''
+        The implementation of the deterministic generator
+        for suitable use of performance evaluation.
+        The use example:
+        >gen_file = dataloader.get_eval_generator()
+        >for file in files:
+        >   for x,y in en_file(file):
+        >       y_pred = ...
+        '''
+        converter = torch_to_tf(return_truth, return_weights)
+        data_loader = R.DataLoader()
+        def read_from_file(file_path):
+            data_loader.ReadFile(R.std.string(file_path), 0, -1)
+            while True:
+                full_tensor = data_loader.MoveNext()
+                data = data_loader.LoadData(full_tensor)
+                x = GetData.getsequence(data.x, data.tau_i,
+                                            self.config["Setup"]["n_tau"],
+                                            self.config["CellObjectType"],
+                                            self.config["SequenceLength"],
+                                            self.config['n_features'])
+                y = GetData.getdata(data.y, data.tau_i,
+                                    (self.config["Setup"]["n_tau"],
+                                    self.config["Setup"]["output_classes"]),
+                                    debug_area="truth")
+                uncompress_index = np.copy(np.frombuffer(data.uncompress_index.data(),
+                                                         dtype=np.int,
+                                                         count=data.uncompress_index.size()))
+                yield converter((tuple(x), y)), uncompress_index[:data.tau_i], data.uncompress_size
+                if full_tensor==False: break
+        return read_from_file
 
     def get_generator(self, primary_set = True, return_truth = True, return_weights = False):
 
@@ -175,12 +207,12 @@ class DataLoader (DataLoaderBase):
 
         input_shape, input_types = [], []
         for comp in self.config["CellObjectType"]:
-            input_shape.append((self.config["Setup"]["n_tau"],
+            input_shape.append((None,
                                 self.config["SequenceLength"][comp],
                                 self.config['n_features'][comp]))
             input_types.append(tf.float32)
         input_shape = [tuple(input_shape)]
-        input_shape.append((self.config["Setup"]["n_tau"],
+        input_shape.append((None,
                             self.config["Setup"]["output_classes"]))
         input_types = [tuple(input_types)]
         input_types.append(tf.float32)

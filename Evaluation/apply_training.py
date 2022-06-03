@@ -29,10 +29,11 @@ def main(cfg: DictConfig) -> None:
         os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
     # load the model
-    with open(to_absolute_path(f'{path_to_artifacts}/input_cfg/metric_names.json')) as f:
-        metric_names = json.load(f)
+    # with open(to_absolute_path(f'{path_to_artifacts}/input_cfg/metric_names.json')) as f:
+    #     metric_names = json.load(f)
     path_to_model = f'{path_to_artifacts}/model'
-    model = load_model(path_to_model, {name: lambda _: None for name in metric_names.keys()}) # workaround to load the model without loading metric functions
+    # model = load_model(path_to_model, {name: lambda _: None for name in metric_names.keys()}) # workaround to load the model without loading metric functions
+    model = load_model(path_to_model) 
 
     # load baseline training cfg and update it with parsed arguments
     training_cfg = OmegaConf.load(to_absolute_path(cfg.path_to_training_cfg))
@@ -54,14 +55,15 @@ def main(cfg: DictConfig) -> None:
             if cfg.verbose: print('\n--> Didn\'t find git commit hash in run artifacts, continuing with current repo state\n')
 
     # instantiate DataLoader and get generator
-    import DataLoader
+    import DataLoaderReco
     scaling_cfg  = to_absolute_path(cfg.scaling_cfg)
-    dataloader = DataLoader.DataLoader(training_cfg, scaling_cfg)
+    dataloader = DataLoaderReco.DataLoader(training_cfg, scaling_cfg)
     gen_predict = dataloader.get_predict_generator()
-    tau_types_names = training_cfg['Setup']['tau_types_names']
+    tau_types_names = training_cfg['Setup']['jet_types_names']
 
     pathes = glob.glob(to_absolute_path(cfg.path_to_input_dir)+'/*root') if cfg.input_filename is None \
              else [to_absolute_path(f'{cfg.path_to_input_dir}/{cfg.input_filename}.root')]
+    print("Files to apply_training:", len(pathes))
 
     for input_file_name in pathes:
 
@@ -88,7 +90,7 @@ def main(cfg: DictConfig) -> None:
                 y_pred = np.zeros((size, y.shape[1]))
                 y_target = np.zeros((size, y.shape[1]))
 
-                if dataloader.input_type=="Adversarial":
+                if dataloader.config["Setup"]["input_type"]=="Adversarial":
                     y_pred[indexes] = model.predict(X)[0]
                 else:
                     y_pred[indexes] = model.predict(X)
