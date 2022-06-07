@@ -6,13 +6,14 @@ training_cfg_upd:
     recompute_jet_type   : True
     debug: False
     input_type  : "ROOT"
+    to_propagate_glob    : True # This probagate Glob features (needed for evaluation)
   SetupNN:
     n_batches: -1
     n_batches_val: -1
     validation_split: 0.
     max_queue_size: 1
     n_load_workers: 1
-
+  
 # mlflow info
 path_to_mlflow: ???
 experiment_id: ???

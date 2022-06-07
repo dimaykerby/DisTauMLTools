@@ -34,10 +34,11 @@ def main(cfg: DictConfig) -> None:
 
     # construct branches to be read from input files
     input_branches = OmegaConf.to_object(cfg.input_branches)
+    id_branches = []
     if ((_b:=discriminator.pred_column) is not None) and (cfg.path_to_pred is None):
-        input_branches.append(_b)
+        id_branches.append(_b)
     if (_b:=discriminator.wp_column) is not None:
-        input_branches.append(_b)
+        id_branches.append(_b)
 
     # loop over input samples
     df_list = []
@@ -48,8 +49,9 @@ def main(cfg: DictConfig) -> None:
         # loop over all input files per sample with associated predictions/targets (if present) and combine together into df
         print(f'[INFO] Creating dataframe for sample: {sample_alias}')
         for input_file, pred_file, target_file in zip(input_files, pred_files, target_files):
-            df = eval_tools.create_df(input_file, input_branches, pred_file, target_file, None, # weights functionality is WIP
-                                            cfg.discriminator.pred_column_prefix, cfg.discriminator.target_column_prefix)
+            df = eval_tools.create_df(input_file, input_branches, id_branches, pred_file, target_file, None, # weights functionality is WIP
+                                            cfg.discriminator.pred_column_prefix,
+                                            cfg.discriminator.target_column_prefix)
             gen_selection = ' or '.join([f'(gen_{tau_type}==1)' for tau_type in tau_types]) # gen_* are constructed in `add_targets()`
             df = df.query(gen_selection)
             df_list.append(df)
@@ -73,103 +75,108 @@ def main(cfg: DictConfig) -> None:
 
         # loop over pt bins
         print(f'\n{discriminator.name}')
-        for eta_index, (eta_min, eta_max) in enumerate(cfg.eta_bins):
-            for pt_index, (pt_min, pt_max) in enumerate(cfg.pt_bins):
-                # apply pt/eta/dm bin selection
-                df_cut = df_all.query(f'jet_pt >= {pt_min} and jet_pt < {pt_max} and abs(jet_eta) >= {eta_min} and abs(jet_eta) < {eta_max}')
-                if df_cut.shape[0] == 0:
-                    print("Warning: bin with pt ({}, {}) and eta ({}, {}) is empty.".format(pt_min, pt_max, eta_min, eta_max))
-                    continue
-                print(f'\n-----> pt bin: [{pt_min}, {pt_max}], eta bin: [{eta_min}, {eta_max}]')
-                print('[INFO] counts:\n', df_cut[['gen_tau', f'gen_{cfg.vs_type}']].value_counts())
+        for Lxy_index, (Lxy_min, Lxy_max) in enumerate(cfg.Lxy_bins):
+            for eta_index, (eta_min, eta_max) in enumerate(cfg.eta_bins):
+                for pt_index, (pt_min, pt_max) in enumerate(cfg.pt_bins):
+                    # apply pt/eta/dm bin selection
+                    df_cut = df_all.query(f'jet_pt >= {pt_min} and jet_pt < {pt_max} and abs(jet_eta) >= {eta_min} and abs(jet_eta) < {eta_max} and ((Lxy >= {Lxy_min} and Lxy < {Lxy_max}) or gen_jet==1)')
+                    # df_cut = df_cut.query(f'((Lxy >= {Lxy_min} and Lxy < {Lxy_max}) or gen_tau!=1)') # Lxy cut only for signal
+                    if df_cut.shape[0] == 0:
+                        print("Warning: bin with pt ({}, {}) and eta ({}, {}) is empty.".format(pt_min, pt_max, eta_min, eta_max))
+                        continue
+                    print(f'\n-----> pt bin: [{pt_min}, {pt_max}], eta bin: [{eta_min}, {eta_max}], Lxy [{Lxy_min}, {Lxy_max}]')
+                    print('[INFO] counts:\n', df_cut[['gen_tau', f'gen_{cfg.vs_type}']].value_counts())
 
-                # create roc curve and working points
-                roc, wp_roc = discriminator.create_roc_curve(df_cut)
-                if roc is not None:
-                    # prune the curve
-                    lim = getattr(plot_setup,  'xlim')
-                    x_range = lim[1] - lim[0] if lim is not None else 1
-                    roc = roc.Prune(tpr_decimals=max(0, round(math.log10(1000 / x_range))))
-                    if roc.auc_score is not None:
-                        print(f'[INFO] ROC curve done, AUC = {roc.auc_score}')
+                    # create roc curve and working points
+                    roc, wp_roc = discriminator.create_roc_curve(df_cut)
+                    if roc is not None:
+                        # prune the curve
+                        lim = getattr(plot_setup,  'xlim')
+                        x_range = lim[1] - lim[0] if lim is not None else 1
+                        roc = roc.Prune(tpr_decimals=max(0, round(math.log10(1000 / x_range))))
+                        if roc.auc_score is not None:
+                            print(f'[INFO] ROC curve done, AUC = {roc.auc_score}')
 
-                # loop over [ROC curve, ROC curve WP] for a given discriminator and store its info into dict
-                for curve_type, curve in zip(['roc_curve', 'roc_wp'], [roc, wp_roc]):
-                    if curve is None: continue
-                    if json_exists and curve_type in performance_data['metrics'] \
-                                    and (existing_curve := eval_tools.select_curve(performance_data['metrics'][curve_type], 
-                                                                                    pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max, vs_type=cfg.vs_type,
-                                                                                    dataset_alias=cfg.dataset_alias)) is not None:
-                        print(f'[INFO] Found already existing curve (type: {curve_type}) in json file for a specified set of parameters: will overwrite it.')
-                        performance_data['metrics'][curve_type].remove(existing_curve)
+                    # loop over [ROC curve, ROC curve WP] for a given discriminator and store its info into dict
+                    for curve_type, curve in zip(['roc_curve', 'roc_wp'], [roc, wp_roc]):
+                        if curve is None: continue
+                        if json_exists and curve_type in performance_data['metrics'] \
+                                        and (existing_curve := eval_tools.select_curve(performance_data['metrics'][curve_type], 
+                                                                                        pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max, 
+                                                                                        Lxy_min=Lxy_min, Lxy_max=Lxy_max, vs_type=cfg.vs_type,
+                                                                                        dataset_alias=cfg.dataset_alias)) is not None:
+                            print(f'[INFO] Found already existing curve (type: {curve_type}) in json file for a specified set of parameters: will overwrite it.')
+                            performance_data['metrics'][curve_type].remove(existing_curve)
 
-                    curve_data = {
-                        'pt_min': pt_min, 'pt_max': pt_max, 
-                        'eta_min': eta_min, 'eta_max': eta_max,
-                        'vs_type': cfg.vs_type,
-                        'dataset_alias': cfg.dataset_alias,
-                        'auc_score': curve.auc_score,
-                        'false_positive_rate': eval_tools.FloatList(curve.pr[0, :].tolist()),
-                        'true_positive_rate': eval_tools.FloatList(curve.pr[1, :].tolist()),
-                    }
-                    if curve.thresholds is not None:
-                        curve_data['thresholds'] = eval_tools.FloatList(curve.thresholds.tolist())
-                    if curve.pr_err is not None:
-                        curve_data['false_positive_rate_up'] = eval_tools.FloatList(curve.pr_err[0, 0, :].tolist())
-                        curve_data['false_positive_rate_down'] = eval_tools.FloatList(curve.pr_err[0, 1, :].tolist())
-                        curve_data['true_positive_rate_up'] = eval_tools.FloatList(curve.pr_err[1, 0, :].tolist())
-                        curve_data['true_positive_rate_down'] = eval_tools.FloatList(curve.pr_err[1, 1, :].tolist())
+                        curve_data = {
+                            'pt_min': pt_min, 'pt_max': pt_max, 
+                            'eta_min': eta_min, 'eta_max': eta_max,
+                            'Lxy_min': Lxy_min, 'Lxy_max':Lxy_max,
+                            'vs_type': cfg.vs_type,
+                            'dataset_alias': cfg.dataset_alias,
+                            'auc_score': curve.auc_score,
+                            'false_positive_rate': eval_tools.FloatList(curve.pr[0, :].tolist()),
+                            'true_positive_rate': eval_tools.FloatList(curve.pr[1, :].tolist()),
+                        }
+                        if curve.thresholds is not None:
+                            curve_data['thresholds'] = eval_tools.FloatList(curve.thresholds.tolist())
+                        if curve.pr_err is not None:
+                            curve_data['false_positive_rate_up'] = eval_tools.FloatList(curve.pr_err[0, 0, :].tolist())
+                            curve_data['false_positive_rate_down'] = eval_tools.FloatList(curve.pr_err[0, 1, :].tolist())
+                            curve_data['true_positive_rate_up'] = eval_tools.FloatList(curve.pr_err[1, 0, :].tolist())
+                            curve_data['true_positive_rate_down'] = eval_tools.FloatList(curve.pr_err[1, 1, :].tolist())
 
-                    # plot setup for the curve
-                    curve_data['plot_setup'] = {
-                        'color': curve.color,
-                        'dots_only': curve.dots_only,
-                        'dashed': curve.dashed,
-                        'marker_size': curve.marker_size
-                    }
-                    # curve_data['plot_setup']['ratio_title'] = 'MVA/DeepTau' if cfg.vs_type != 'mu' else 'cut based/DeepTau'
-                    curve_data['plot_setup']['ratio_title'] = "ratio"
+                        # plot setup for the curve
+                        curve_data['plot_setup'] = {
+                            'color': curve.color,
+                            'dots_only': curve.dots_only,
+                            'dashed': curve.dashed,
+                            'marker_size': curve.marker_size
+                        }
+                        # curve_data['plot_setup']['ratio_title'] = 'MVA/DeepTau' if cfg.vs_type != 'mu' else 'cut based/DeepTau'
+                        curve_data['plot_setup']['ratio_title'] = "ratio"
 
-                    # plot setup for the curve
-                    for lim_name in [ 'x', 'y', 'ratio_y' ]:
-                        lim = getattr(plot_setup, lim_name + 'lim')
-                        if lim is not None:
-                            lim = OmegaConf.to_object(lim[eta_index][pt_index]) if isinstance(lim[0], (list, ListConfig)) else lim
-                            curve_data['plot_setup'][lim_name + '_min'] = lim[0]
-                            curve_data['plot_setup'][lim_name + '_max'] = lim[1]
-                    for param_name in [ 'ylabel', 'yscale', 'ratio_yscale', 'legend_loc', 'ratio_ylabel_pad']:
-                        val = getattr(plot_setup, param_name)
-                        if val is not None:
-                            curve_data['plot_setup'][param_name] = val
+                        # plot setup for the curve
+                        for lim_name in [ 'x', 'y', 'ratio_y' ]:
+                            lim = getattr(plot_setup, lim_name + 'lim')
+                            if lim is not None:
+                                lim = OmegaConf.to_object(lim[eta_index][pt_index]) if isinstance(lim[0], (list, ListConfig)) else lim
+                                curve_data['plot_setup'][lim_name + '_min'] = lim[0]
+                                curve_data['plot_setup'][lim_name + '_max'] = lim[1]
+                        for param_name in [ 'ylabel', 'yscale', 'ratio_yscale', 'legend_loc', 'ratio_ylabel_pad']:
+                            val = getattr(plot_setup, param_name)
+                            if val is not None:
+                                curve_data['plot_setup'][param_name] = val
 
-                    # plot setup for the curve
-                    if cfg.plot_setup.public_plots:
-                        if pt_max == 1000:
-                            pt_text = r'$p_T > {}$ GeV'.format(pt_min)
-                        elif pt_min == 20:
-                            pt_text = r'$p_T < {}$ GeV'.format(pt_max)
-                        else:
-                            pt_text = r'$p_T\in ({}, {})$ GeV'.format(pt_min, pt_max)
-                        curve_data['plot_setup']['pt_text'] = pt_text
-                    else:
-                        if cfg.plot_setup.inequality_in_title and (pt_min == 20 or pt_max == 1000) \
-                                and not (pt_min == 20 and pt_max == 1000):
-                            if pt_min == 20:
-                                title_str = 'tau vs {}. pt < {} GeV'.format(cfg.vs_type, pt_max)
+                        # plot setup for the curve
+                        if cfg.plot_setup.public_plots:
+                            if pt_max == 1000:
+                                pt_text = r'$p_T > {}$ GeV'.format(pt_min)
+                            elif pt_min == 20:
+                                pt_text = r'$p_T < {}$ GeV'.format(pt_max)
                             else:
-                                title_str = 'tau vs {}. pt > {} GeV'.format(cfg.vs_type, pt_min)
+                                pt_text = r'$p_T\in ({}, {})$ GeV'.format(pt_min, pt_max)
+                            curve_data['plot_setup']['pt_text'] = pt_text
                         else:
-                            title_str = 'tau vs {}. pt range ({}, {}) GeV'.format(cfg.vs_type, pt_min,
-                                                                                    pt_max)
-                        curve_data['plot_setup']['pt_text'] = title_str
-                    curve_data['plot_setup']['eta_text'] = r'${} < |\eta| < {}$'.format(eta_min, eta_max)
-                    # if len(dm_bin)==1:
-                    #     curve_data['plot_setup']['dm_text'] = r'DM$ = {}$'.format(dm_bin[0])
-                    # else:
-                    #     curve_data['plot_setup']['dm_text'] = r'DM$ \in {}$'.format(dm_bin)
+                            if cfg.plot_setup.inequality_in_title and (pt_min == 20 or pt_max == 1000) \
+                                    and not (pt_min == 20 and pt_max == 1000):
+                                if pt_min == 20:
+                                    title_str = 'tau vs {}. pt < {} GeV'.format(cfg.vs_type, pt_max)
+                                else:
+                                    title_str = 'tau vs {}. pt > {} GeV'.format(cfg.vs_type, pt_min)
+                            else:
+                                title_str = 'tau vs {}. pt range ({}, {}) GeV'.format(cfg.vs_type, pt_min,
+                                                                                        pt_max)
+                            curve_data['plot_setup']['pt_text'] = title_str
+                        curve_data['plot_setup']['eta_text'] = r'${} < |\eta| < {}$'.format(eta_min, eta_max)
+                        # if len(dm_bin)==1:
+                        #     curve_data['plot_setup']['dm_text'] = r'DM$ = {}$'.format(dm_bin[0])
+                        # else:
+                        #     curve_data['plot_setup']['dm_text'] = r'DM$ \in {}$'.format(dm_bin)
 
-                    # append data for a given curve_type and pt bin
-                    performance_data['metrics'][curve_type].append(curve_data)
+                        # append data for a given curve_type and pt bin
+                        curve_data['plot_setup']['Lxy_text'] = r'${} < Lxy < {}$'.format(Lxy_min, Lxy_max)
+                        performance_data['metrics'][curve_type].append(curve_data)
 
         json_file.seek(0) 
         json_file.write(json.dumps(performance_data, indent=4, cls=eval_tools.CustomJsonEncoder))

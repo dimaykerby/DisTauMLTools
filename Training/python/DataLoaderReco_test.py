@@ -26,7 +26,8 @@ n_seq = {}
 for celltype in config["Features_all"]:
     n_features[str(celltype)] = len(config["Features_all"][celltype]) - \
                                 len(config["Features_disable"][celltype])
-    n_seq[str(celltype)] = config["SequenceLength"][celltype]
+    if celltype in config["SequenceLength"]: # sequence length
+        n_seq[str(celltype)] = config["SequenceLength"][celltype]
 input_grids = config["CellObjectType"]
 
 input_files = []
@@ -69,14 +70,16 @@ for i in range(n_batches):
     
     data = data_loader.LoadData(checker)
     X = getsequence(data.x, data.tau_i, n_tau, input_grids, n_features, n_seq)
+    X_glob = getdata(data.x_glob, data.tau_i, (n_tau, n_features["Global"]))
     Y = getdata(data.y, data.tau_i, (n_tau, outclass))
     W = getdata(data.weights, data.tau_i,  -1)
 
-    # print("X valid:\n",X[0][:10,:,0])
-    # print("X pt:\n",X[0][:10,:,1])
-    # print("Y:\n",Y[:10])
-    # print("W:\n",W[:10])
-    # exit()
+    print("X valid:\n",X[0][:10,:,0])
+    print("X pt:\n",X[0][:10,:,1])
+    print("Global:\n",X_glob[:10,:])
+    print("Y:\n",Y[:10])
+    print("W:\n",W[:10])
+    exit()
 
     end = time.time()
     print(i, " end: ",end-start, ' s.')

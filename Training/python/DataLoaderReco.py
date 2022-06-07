@@ -69,7 +69,7 @@ class DataLoader (DataLoaderBase):
         self.config['n_features'] = {}
         self.config['embedded_param'] = {}
 
-        for pfCand_type in self.config["CellObjectType"]:
+        for pfCand_type in self.config["Features_all"]:
             self.config['input_map'][pfCand_type] = {}
             self.config['n_features'][pfCand_type] = \
                 len(self.config["Features_all"][pfCand_type]) - \
@@ -102,6 +102,7 @@ class DataLoader (DataLoaderBase):
         >   for x,y in en_file(file):
         >       y_pred = ...
         '''
+        print(self.config['n_features'])
         converter = torch_to_tf(return_truth, return_weights)
         data_loader = R.DataLoader()
         def read_from_file(file_path):
@@ -114,6 +115,7 @@ class DataLoader (DataLoaderBase):
                                             self.config["CellObjectType"],
                                             self.config["SequenceLength"],
                                             self.config['n_features'])
+                
                 y = GetData.getdata(data.y, data.tau_i,
                                     (self.config["Setup"]["n_tau"],
                                     self.config["Setup"]["output_classes"]),
@@ -121,7 +123,15 @@ class DataLoader (DataLoaderBase):
                 uncompress_index = np.copy(np.frombuffer(data.uncompress_index.data(),
                                                          dtype=np.int,
                                                          count=data.uncompress_index.size()))
-                yield converter((tuple(x), y)), uncompress_index[:data.tau_i], data.uncompress_size
+                if(self.config["Setup"]["to_propagate_glob"]==True):
+                    # Needed to propagate global variables from DataLoader to the apply_training
+                    x_glob = GetData.getdata(data.x_glob, data.tau_i,
+                                    (self.config["Setup"]["n_tau"],
+                                     self.config['n_features']["Global"]),
+                                    debug_area="global")
+                    yield converter((tuple(x), y)), x_glob.clone().numpy(), uncompress_index[:data.tau_i], data.uncompress_size
+                else:
+                    yield converter((tuple(x), y)), uncompress_index[:data.tau_i], data.uncompress_size
                 if full_tensor==False: break
         return read_from_file
 

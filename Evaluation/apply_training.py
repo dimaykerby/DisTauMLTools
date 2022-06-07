@@ -60,6 +60,7 @@ def main(cfg: DictConfig) -> None:
     dataloader = DataLoaderReco.DataLoader(training_cfg, scaling_cfg)
     gen_predict = dataloader.get_predict_generator()
     tau_types_names = training_cfg['Setup']['jet_types_names']
+    global_features = dataloader.config['input_map']['Global']
 
     pathes = glob.glob(to_absolute_path(cfg.path_to_input_dir)+'/*root') if cfg.input_filename is None \
              else [to_absolute_path(f'{cfg.path_to_input_dir}/{cfg.input_filename}.root')]
@@ -81,14 +82,16 @@ def main(cfg: DictConfig) -> None:
         # run predictions
         predictions = []
         targets = []
+        propagated_vars = []
         if cfg.verbose: print(f'\n\n--> Processing file {input_file_name}, number of taus: {n_taus}\n')
 
         with tqdm(total=n_taus) as pbar:
 
-            for (X,y),indexes,size in gen_predict(input_file_name):
+            for (X,y), x_glob, indexes,size in gen_predict(input_file_name):
 
                 y_pred = np.zeros((size, y.shape[1]))
                 y_target = np.zeros((size, y.shape[1]))
+                glob_var = np.zeros((size, x_glob.shape[1]))
 
                 if dataloader.config["Setup"]["input_type"]=="Adversarial":
                     y_pred[indexes] = model.predict(X)[0]
@@ -96,28 +99,36 @@ def main(cfg: DictConfig) -> None:
                     y_pred[indexes] = model.predict(X)
 
                 y_target[indexes] = y
+                glob_var[indexes] = x_glob
 
                 predictions.append(y_pred)
                 targets.append(y_target)
+                propagated_vars.append(glob_var)
 
                 pbar.update(size)
 
         # concat and check for validity
         predictions = np.concatenate(predictions, axis=0)
         targets = np.concatenate(targets, axis=0)
+        propagated_vars = np.concatenate(propagated_vars, axis=0)
 
         if np.any(np.isnan(predictions)):
             raise RuntimeError("NaN in predictions. Total count = {} out of {}".format(
                                 np.count_nonzero(np.isnan(predictions)), predictions.shape))
         if np.any(predictions < 0) or np.any(predictions > 1):
             raise RuntimeError("Predictions outside [0, 1] range.")
+        if np.any(np.isnan(propagated_vars)):
+            raise RuntimeError("NaN in predictions in propagated_vars")
 
 
         # store into intermediate hdf5 file
         predictions = pd.DataFrame({f'node_{tau_type}': predictions[:, int(idx)] for idx, tau_type in tau_types_names.items()})
         targets = pd.DataFrame({f'node_{tau_type}': targets[:, int(idx)] for idx, tau_type in tau_types_names.items()}, dtype=np.int64)
+        propagated_vars = pd.DataFrame({f'{name}': propagated_vars[:, int(idx)] for name, idx in global_features.items()})
+
         predictions.to_hdf(f'{output_filename}.h5', key='predictions', mode='w', format='fixed', complevel=1, complib='zlib')
         targets.to_hdf(f'{output_filename}.h5', key='targets', mode='r+', format='fixed', complevel=1, complib='zlib')
+        propagated_vars.to_hdf(f'{output_filename}.h5', key='propagated_vars', mode='r+', format='fixed', complevel=1, complib='zlib')
 
         # log to mlflow and delete intermediate file
         with mlflow.start_run(experiment_id=cfg.experiment_id, run_id=cfg.run_id) as active_run:
