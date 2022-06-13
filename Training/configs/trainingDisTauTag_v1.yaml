@@ -11,6 +11,9 @@ Setup:
     output_classes       : 2 #number of elements in jet_types_names
     recompute_jet_type   : True
     weight_thr           : 1000
+
+    to_propagate_glob    : False # This probagate Glob features (needed for evaluation)
+
     
     # here define variables for the Histogram_2D class
     yaxis                : [
@@ -50,29 +53,41 @@ Setup:
     xmin                 : 0
     xmax                 : 2.4
 
-SetupNN:
+SetupBaseNN:
     
-    model_name           : "TauJetTagSNN"
+    model_name           : "TauJetTag"
     n_batches            : -1
     n_batches_val        : -1
-    n_batches_log        : 100
+    n_batches_log        : 500
     epoch                : 0
     n_epochs             : 1
-
-    validation_split     : 0.3
+    validation_split     : 0.2
     max_queue_size       : 10
-    n_load_workers       : 4
-
+    n_load_workers       : 6
     learning_rate        : 0.001
-    n_gnn_layers         : 6
+
+SetupSNN:
+
+    n_gnn_layers         : 10
     n_dim_gnn            : 2
     n_output_gnn         : 50
     n_output_gnn_last    : 30
-    n_dense_layers       : 3
+    n_dense_layers       : 4
     n_dense_nodes        : 100
     wiring_mode          : "m1"
     dropout_rate         : 0.1 
     regu_rate            : 0.01
+
+SetupParticleNet:
+
+    conv_params          : [
+                              [16, [50,  50,  50]],
+                              [16, [100, 100, 100]],
+                              [16, [150, 150, 150]]
+                           ]
+    dense_params         : [150, 150]
+    conv_pooling         : "average"
+    dropout_rate         : 0.1
 
 CellObjectType : [ PfCand,  PfCandCategorical ] # All Cell Objects
 
@@ -131,6 +146,12 @@ Scaling_setup:
 
 Features_all :
 
+    Global  : 
+          - jet_pt    : null
+          - jet_eta   : null
+          - Lxy       : null
+          - Lz        : null
+
     PfCand :
           - pfCand_valid                : [ *jet_valid, null, "categorical"]
           - pfCand_pt                   : [ *jet_valid, null, "linear", 0.0, 100.0 ]
@@ -165,6 +186,6 @@ Features_all :
           - pfCand_fromPV               : [ *jet_valid, null, "categorical", 4, 2]
 
 Features_disable :
-
+    Global : [ ]
     PfCand : [ ]
     PfCandCategorical : [ ]
