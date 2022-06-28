@@ -8,5 +8,5 @@ plot_setup_map:
     ylabel: 'Jet mis-id probability'
     ratio_ylabel_pad: 30
     xlim: [0.0, 1]
-    ylim: [1e-5, 1]
+    ylim: [1e-6, 1]
     ratio_ylim: [0.99, 1.01]

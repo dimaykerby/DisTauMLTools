@@ -60,7 +60,7 @@ SetupBaseNN:
     n_batches_val        : -1
     n_batches_log        : 500
     epoch                : 0
-    n_epochs             : 1
+    n_epochs             : 3
     validation_split     : 0.2
     max_queue_size       : 10
     n_load_workers       : 6
@@ -68,19 +68,26 @@ SetupBaseNN:
 
 SetupSNN:
 
-    n_gnn_layers         : 10
-    n_dim_gnn            : 2
-    n_output_gnn         : 50
-    n_output_gnn_last    : 30
-    n_dense_layers       : 4
-    n_dense_nodes        : 100
-    wiring_mode          : "m1"
+    conv_params          : [ # [dim, n_output]
+                              [2, 50],
+                              [2, 50],
+                              [2, 60],
+                              [2, 60],
+                              [2, 70],
+                              [2, 70],
+                              [2, 80],
+                              [2, 80],
+                              [2, 100],
+                              [2, 100],
+                           ]
+    dense_params         : [100, 100, 100]
+    wiring_period        : 3
     dropout_rate         : 0.1 
-    regu_rate            : 0.01
+    regu_rate            : 0
 
 SetupParticleNet:
 
-    conv_params          : [
+    conv_params          : [ #[K, [C1, C2, C3]]
                               [16, [50,  50,  50]],
                               [16, [100, 100, 100]],
                               [16, [150, 150, 150]]

@@ -1,7 +1,7 @@
 # general
-name: DeepTau vs. ${vs_type} (v2p1)
+name: DeepTau (v2p1)
 color: blue
-dashed: False
+dashed: True
 raw: True
 
 # prediction/target columns

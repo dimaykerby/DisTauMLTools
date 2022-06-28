@@ -331,10 +331,10 @@ def main(cfg: DictConfig) -> None:
 
         mlflow.log_dict(training_cfg, 'input_cfg/training_cfg.yaml')
         mlflow.log_artifact(scaling_cfg, 'input_cfg')
-        mlflow.log_artifact(to_absolute_path("Training_DisTauTag_ParticleNetv0.py"), 'input_cfg')
+        mlflow.log_artifact(to_absolute_path("Training_DisTauTag_ParticleNetv1.py"), 'input_cfg')
         mlflow.log_artifact(to_absolute_path("../commonReco.py"), 'input_cfg')
         mlflow.log_artifacts('.hydra', 'input_cfg/hydra')
-        mlflow.log_artifact('Training_DisTauTag_ParticleNetv0.log', 'input_cfg/hydra')
+        mlflow.log_artifact('Training_DisTauTag_ParticleNetv1.log', 'input_cfg/hydra')
         mlflow.log_param('run_id', run_id)
         print(f'\nTraining has finished! Corresponding MLflow experiment name (ID): {cfg.experiment_name}({run_kwargs["experiment_id"]}), and run ID: {run_id}\n')
 

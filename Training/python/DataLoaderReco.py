@@ -87,7 +87,7 @@ class DataLoader (DataLoaderBase):
         data_files = glob.glob(f'{self.config["Setup"]["input_dir"]}/*.root')
 
         self.train_files, self.val_files = \
-             np.split(data_files, [int(len(data_files)*(1-self.config["SetupNN"]["validation_split"]))])
+             np.split(data_files, [int(len(data_files)*(1-self.config["SetupBaseNN"]["validation_split"]))])
 
         print("Files for training:", len(self.train_files))
         print("Files for validation:", len(self.val_files))
@@ -142,10 +142,10 @@ class DataLoader (DataLoaderBase):
             raise RuntimeError(("Taining" if primary_set else "Validation")+\
                                " file list is empty.")
 
-        n_batches = self.config["SetupNN"]["n_batches"] if primary_set \
-                    else self.config["SetupNN"]["n_batches_val"]
+        n_batches = self.config["SetupBaseNN"]["n_batches"] if primary_set \
+                    else self.config["SetupBaseNN"]["n_batches_val"]
         print("Number of workers in DataLoader: ",
-                self.config["SetupNN"]["n_load_workers"])
+                self.config["SetupBaseNN"]["n_load_workers"])
 
         converter = torch_to_tf(return_truth, return_weights)
 
@@ -156,10 +156,10 @@ class DataLoader (DataLoaderBase):
             queue_files = mp.Queue()
             [ queue_files.put(file) for file in _files ]
 
-            queue_out = QueueEx(max_size = self.config["SetupNN"]["max_queue_size"], max_n_puts = n_batches)
+            queue_out = QueueEx(max_size = self.config["SetupBaseNN"]["max_queue_size"], max_n_puts = n_batches)
 
             processes = []
-            n_load_workers = self.config["SetupNN"]["n_load_workers"]
+            n_load_workers = self.config["SetupBaseNN"]["n_load_workers"]
             terminators = [ [mp.Event(),mp.Event()] for _ in range(n_load_workers) ]
 
             for i in range(n_load_workers):
