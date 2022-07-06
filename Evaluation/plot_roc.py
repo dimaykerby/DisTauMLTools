@@ -148,9 +148,9 @@ def main(cfg: DictConfig) -> None:
     pt_min, pt_max = cfg.pt_bin[0], cfg.pt_bin[1]
     assert len(cfg.eta_bin)==2 and cfg.eta_bin[0] <= cfg.eta_bin[1]
     eta_min, eta_max = cfg.eta_bin[0], cfg.eta_bin[1]
-    assert len(cfg.L_bin)==4
-    # L_min, L_max = cfg.L_bin[0], cfg.L_bin[1]
-    rho_min, rho_max, z_min, z_max = cfg.L_bin[0], cfg.L_bin[1], cfg.L_bin[2], cfg.L_bin[3]
+    assert len(cfg.L_bin)==2
+    L_min, L_max = cfg.L_bin[0], cfg.L_bin[1]
+    # rho_min, rho_max, z_min, z_max = cfg.L_bin[0], cfg.L_bin[1], cfg.L_bin[2], cfg.L_bin[3]
     # assert len(cfg.dm_bin)>=1
     # dm_bin = cfg.dm_bin
 
@@ -164,7 +164,7 @@ def main(cfg: DictConfig) -> None:
         ref_discr_data = json.load(f)
     ref_curve = select_curve(ref_discr_data['metrics'][ref_curve_type], 
                                 pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max,
-                                rho_min=rho_min, rho_max=rho_max, z_min=z_min, z_max=z_max, vs_type=cfg.vs_type,
+                                L_min=L_min, L_max=L_max, vs_type=cfg.vs_type,
                                 dataset_alias=cfg.dataset_alias)
     if ref_curve is None:
         raise RuntimeError('[INFO] didn\'t manage to retrieve a reference curve from performance.json')
@@ -182,7 +182,7 @@ def main(cfg: DictConfig) -> None:
         for curve_type in curve_types: 
             discr_curve = select_curve(discr_data['metrics'][curve_type], 
                                         pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max,
-                                        rho_min=rho_min, rho_max=rho_max, z_min=z_min, z_max=z_max, vs_type=cfg.vs_type,
+                                        L_min=L_min, L_max=L_max, vs_type=cfg.vs_type,
                                         dataset_alias=cfg.dataset_alias)
             if discr_curve is None:
                 print(f'[INFO] Didn\'t manage to retrieve a curve ({curve_type}) for discriminator ({discr_name}) from performance.json. Will proceed without plotting it.')
@@ -208,8 +208,8 @@ def main(cfg: DictConfig) -> None:
     header_y = 1.02
     ax.text(0.03, 0.89 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['pt_text'], fontsize=14, transform=ax.transAxes)
     ax.text(0.03, 0.82 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['eta_text'], fontsize=14, transform=ax.transAxes)
-    ax.text(0.03, 0.75 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['L_xy'], fontsize=14, transform=ax.transAxes)
-    ax.text(0.03, 0.68 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['L_z'], fontsize=14, transform=ax.transAxes)
+    ax.text(0.03, 0.75 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['Lrel'], fontsize=14, transform=ax.transAxes)
+    # ax.text(0.03, 0.68 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['L_z'], fontsize=14, transform=ax.transAxes)
     # ax.text(0.03, 0.75 - len(set(curve_names)) * 0.07, ref_curve['plot_setup']['dm_text'], fontsize=14, transform=ax.transAxes)
     ax.text(0.01, header_y, 'CMS', fontsize=14, transform=ax.transAxes, fontweight='bold', fontfamily='sans-serif')
     ax.text(0.12, header_y, 'Simulation Preliminary', fontsize=14, transform=ax.transAxes, fontstyle='italic',

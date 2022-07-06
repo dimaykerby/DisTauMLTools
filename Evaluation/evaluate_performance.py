@@ -78,18 +78,20 @@ def main(cfg: DictConfig) -> None:
 
         # loop over pt bins
         print(f'\n{discriminator.name}')
-        for L_index, (rho_min, rho_max, z_min, z_max) in enumerate(cfg.L_bins):
+        for L_index, (L_min, L_max) in enumerate(cfg.L_bins):
             for eta_index, (eta_min, eta_max) in enumerate(cfg.eta_bins):
                 for pt_index, (pt_min, pt_max) in enumerate(cfg.pt_bins):
-                    # L_bins are in cylindrical coordinates
-                    L_cut = f'((Lxy>{rho_min} and Lxy<{rho_max} and abs(Lz)<{z_min}) or (abs(Lz)>{z_min} and abs(Lz)<{z_max} and Lxy<{rho_max}))'
 
-                    # apply pt/eta/dm bin selection
+                    # L_bins are in cylindrical coordinates
+                    # L_cut = f'((Lxy>{rho_min} and Lxy<{rho_max} and abs(Lz)<{z_min}) or (abs(Lz)>{z_min} and abs(Lz)<{z_max} and Lxy<{rho_max}))'
+                    # # apply pt/eta/dm bin selection
+                    L_cut = f'( Lrel >= {L_min} and Lrel <= {L_max} )'
                     df_cut = df_all.query(f'jet_pt >= {pt_min} and jet_pt < {pt_max} and abs(jet_eta) >= {eta_min} and abs(jet_eta) < {eta_max} and ({L_cut} or (gen_tau != 1))') # L cut only for signal
+
                     if df_cut.shape[0] == 0:
                         print("Warning: bin with pt ({}, {}) and eta ({}, {}) is empty.".format(pt_min, pt_max, eta_min, eta_max))
                         continue
-                    print(f'\n-----> pt bin: [{pt_min}, {pt_max}], eta bin: [{eta_min}, {eta_max}], L [{rho_min}, {rho_max}, {z_min}, {z_max}]')
+                    print(f'\n-----> pt bin: [{pt_min}, {pt_max}], eta bin: [{eta_min}, {eta_max}], L [{L_min}, {L_max}]')
                     print('[INFO] counts:\n', df_cut[['gen_tau', f'gen_{cfg.vs_type}']].value_counts())
 
                     # create roc curve and working points
@@ -108,7 +110,7 @@ def main(cfg: DictConfig) -> None:
                         if json_exists and curve_type in performance_data['metrics'] \
                                         and (existing_curve := eval_tools.select_curve(performance_data['metrics'][curve_type], 
                                                                                         pt_min=pt_min, pt_max=pt_max, eta_min=eta_min, eta_max=eta_max, 
-                                                                                        rho_min=rho_min, rho_max=rho_max, z_min=z_min, z_max=z_max,
+                                                                                        L_min=L_min, L_max=L_max,
                                                                                         vs_type=cfg.vs_type,
                                                                                         dataset_alias=cfg.dataset_alias)) is not None:
                             print(f'[INFO] Found already existing curve (type: {curve_type}) in json file for a specified set of parameters: will overwrite it.')
@@ -117,8 +119,7 @@ def main(cfg: DictConfig) -> None:
                         curve_data = {
                             'pt_min': pt_min, 'pt_max': pt_max, 
                             'eta_min': eta_min, 'eta_max': eta_max,
-                            'rho_min': rho_min, 'rho_max': rho_max,
-                            'z_min': z_min, 'z_max': z_max,
+                            'L_min': L_min, 'L_max': L_max,
                             'vs_type': cfg.vs_type,
                             'dataset_alias': cfg.dataset_alias,
                             'auc_score': curve.auc_score,
@@ -182,8 +183,7 @@ def main(cfg: DictConfig) -> None:
                         #     curve_data['plot_setup']['dm_text'] = r'DM$ \in {}$'.format(dm_bin)
 
                         # append data for a given curve_type and pt bin
-                        curve_data['plot_setup']['L_xy'] = r'${} < Lxy < {} cm$'.format(rho_min, rho_max)
-                        curve_data['plot_setup']['L_z'] = r'${} < |Lz| < {} cm$'.format(z_min, z_max)
+                        curve_data['plot_setup']['Lrel'] = r'${} < Lrel < {} cm$'.format(L_min, L_max)
                         performance_data['metrics'][curve_type].append(curve_data)
 
         json_file.seek(0) 

@@ -4,8 +4,8 @@ Setup:
 
     n_tau                :  500 # number of candidates in one batch 
     n_threads            :  1
-    input_dir            : "/nfs/dust/cms/user/mykytaua/softDeepTau/RecoML/DisTauTag/TauMLTools/FlatMerge-output/"
-    spectrum_to_reweight : "/nfs/dust/cms/user/mykytaua/softDeepTau/RecoML/DisTauTag/TauMLTools/FlatMerge-output-spectrum/ShuffleMergeFlat.root"
+    input_dir            : "/nfs/dust/cms/user/mykytaua/softDeepTau/RecoML/DisTauTag/TauMLTools/FlatMerge-output-v3/"
+    spectrum_to_reweight : "/nfs/dust/cms/user/mykytaua/softDeepTau/RecoML/DisTauTag/TauMLTools/FlatMerge-output-v3-spectrum/ShuffleMergeFlat.root"
     dataloader_core      : "TauMLTools/Training/interface/DataLoaderDisTauTag_main.h"
     jet_types_names      : { "0":"jet", "1":"tau",  }
     output_classes       : 2 #number of elements in jet_types_names
@@ -156,8 +156,9 @@ Features_all :
     Global  : 
           - jet_pt    : null
           - jet_eta   : null
-          - Lxy       : null
-          - Lz        : null
+          - Lxy       : null # gen level tau decay xy vertex in detector coordinates
+          - Lz        : null # gen level tau decay z vertex in detector coordinates
+          - Lrel      : null # absolute displacment wrt to the primary vertex
 
     PfCand :
           - pfCand_valid                : [ *jet_valid, null, "categorical"]

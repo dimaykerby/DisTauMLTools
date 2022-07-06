@@ -249,6 +249,9 @@ public:
             if( std::abs(genLeptons.lastCopy().pdgId) != 15 )
                 throw std::runtime_error("Error FillGlob: last copy of genLeptons is not tau.");
 
+            // get the displacement wrt to the primary vertex
+            auto Lrel = genLeptons.lastCopy().getDisplacement();
+            getGlobVecRef(Br::Lrel, Lrel);
             getGlobVecRef(Br::Lxy, std::abs(vertex.rho()));
             getGlobVecRef(Br::Lz, std::abs(vertex.z()));
         }
@@ -256,6 +259,7 @@ public:
         {
             getGlobVecRef(Br::Lxy, -1);
             getGlobVecRef(Br::Lz, -1);
+            getGlobVecRef(Br::Lrel, -1);
         }
         else 
             throw std::runtime_error("Error FillGlob: non valid JetType");

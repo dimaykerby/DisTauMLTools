@@ -181,6 +181,14 @@ class Discriminator:
     def create_roc_curve(self, df):
         roc, wp_roc = None, None
         if self.raw: # construct ROC curve
+
+            # print(self.pred_column)
+            # print(pd.unique( df["gen_tau"]))
+            # print((df[df["gen_tau"]==1][self.pred_column]<0).value_counts())
+            # print((df[df["gen_tau"]==1][self.pred_column]>1).value_counts())
+            # print((df[df["gen_tau"]==0][self.pred_column]<0).value_counts())
+            # print((df[df["gen_tau"]==0][self.pred_column]>1).value_counts())
+
             fpr, tpr, thresholds = metrics.roc_curve(df['gen_tau'].values, df[self.pred_column].values, sample_weight=df.weight.values)
             roc = RocCurve(len(fpr), self.color, False, dashed=self.dashed)
             roc.pr[0, :] = fpr

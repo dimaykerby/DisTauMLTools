@@ -15,28 +15,38 @@ vs_type: "jet" # jet/e/mu
 dataset_alias: ??? # alias to reference a mixture of input_samples below, e.g. tau_DY_jet_TT
 pt_bins: [[20, 100], [100, 1000]]
 eta_bins: [[0, 2.4]]
+
 # L_bins are in cylindrical coordinates [rho_min, rho_max, z_min, z_max]
 # in order to select cylinder, the following selection is used:
 # (rho>rho_min && rho<rho_max && |z|<z_min) || (z>z_min && z<z_max && rho<rho_max)
-L_bins: [
-          # [rho_min, rho_max, z_min, z_max]
-          [0.0, 0.2, 0.0, 1.0],
-          [0.2, 1.0, 1.0, 10.0],
-          [1.0, 10.0, 10.0, 20.0],
-          [10.0, 30.0, 20.0, 50.0],
-          [30.0, 50.0, 50.0, 100.0]
-        ]
-
+# L_bins: [
+#           # [rho_min, rho_max, z_min, z_max]
+#           [0.0, 0.2, 0.0, 1.0],
+#           [0.2, 1.0, 1.0, 10.0],
+#           [1.0, 10.0, 10.0, 20.0],
+#           [10.0, 30.0, 20.0, 50.0],
+#           [30.0, 50.0, 50.0, 100.0]
+#         ]
 # selection
-input_branches: [ 'jet_pt', 'jet_eta', 'Lxy', 'Lz'] # add here branches with targets/prediction if necessary
+
+L_bins: [
+          [0.0, 0.2],
+          [0.2, 1.0,],
+          [1.0, 5.0],
+          [5.0, 10.0],
+          [10.0, 50.0],
+          [50.0, 100.0],
+          [100.0, 200.0]
+        ]
 cuts: "jet_pt>20"
+input_branches: [ 'jet_pt', 'jet_eta', 'Lxy', 'Lz', 'Lrel']
 
 # inputs/paths
 input_samples: # "sample_alias": [list of strings with tau types to be selected]
   # ShuffleMergeFlat : [ 'tau', 'jet' ]
-  # STAU_longlived_M100_10cm : ['tau']
   # GluGluHToTauTau_M125 : ['tau']
-  # TTToSemiLeptonic : ['jet']
+  STAU_M100_1000mm : ['tau']
+  TTToSemiLeptonic : ['jet']
 
 path_to_input: null
 path_to_pred: '${path_to_mlflow}/${experiment_id}/${run_id}/artifacts/predictions/{sample_alias}/*_pred.h5'
