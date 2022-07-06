@@ -72,7 +72,7 @@ boost::optional<JetType> GetJetType(const tau_tuple::Tau& tau) {
                 if( dR < JetTypeSelection::genLepton_jet_dR ) return JetType::tau;
             }
 
-        } else if( tau.genJet_index >= 0 &&
+        } else if( tau.genJet_index >= 0 && (tau.genLepton_kind <= 0 || tau.genLepton_kind == static_cast<int>(GenLeptonMatch::NoMatch)) &&
                    tau.genJet_pt > JetTypeSelection::genJet_pt && 
                    std::abs(tau.genJet_eta) < JetTypeSelection::genJet_eta )
                     return JetType::jet;
