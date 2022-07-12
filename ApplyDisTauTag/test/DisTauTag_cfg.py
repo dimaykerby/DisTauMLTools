@@ -7,7 +7,7 @@ from FWCore.ParameterSet.VarParsing import VarParsing
 
 
 # get the data/ directory
-graph_file='/afs/desy.de/user/m/mykytaua/nfscms/softDeepTau/RecoML/DisTauTag/TauMLTools/Training/python/DisTauTag/mlruns/3/9bea2e5d286b46bf86ac51285842be42/artifacts/model_graph/graph.pb'
+graph_file='/afs/desy.de/user/m/mykytaua/nfscms/softDeepTau/RecoML/DisTauTag/TauMLTools/Training/python/DisTauTag/mlruns/3/a27159734e304ea4b7f9e0042baa9e22/artifacts/model_graph/graph.pb'
 
 # setup minimal options
 options = VarParsing("python")
@@ -30,11 +30,11 @@ process.options = cms.untracked.PSet(
     wantSummary=cms.untracked.bool(True),
 )
 
-# setup MyPlugin by loading the auto-generated cfi (see MyPlugin.fillDescriptions)
-process.load("TauMLTools.ApplyDisTauTag.myPlugin_cfi")
-process.myPlugin.graphPath    = cms.string(graph_file)
-process.myPlugin.jets         = cms.InputTag('slimmedJets')
-process.myPlugin.pfCandidates = cms.InputTag('packedPFCandidates')
+# setup DisTauTag by loading the auto-generated cfi (see DisTauTag.fillDescriptions)
+process.load("TauMLTools.ApplyDisTauTag.disTauTag_cfi")
+process.disTauTag.graphPath    = cms.string(graph_file)
+process.disTauTag.jets         = cms.InputTag('slimmedJets')
+process.disTauTag.pfCandidates = cms.InputTag('packedPFCandidates')
 
 # define what to run in the path
-process.p = cms.Path(process.myPlugin)
+process.p = cms.Path(process.disTauTag)

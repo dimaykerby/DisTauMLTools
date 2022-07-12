@@ -4,6 +4,8 @@
 
 #include <memory>
 
+#include <boost/math/constants/constants.hpp>
+
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -27,18 +29,25 @@ namespace {
     }
 }
 
-class MyPlugin : public edm::one::EDAnalyzer<> {
+class DisTauTag : public edm::one::EDAnalyzer<> {
 public:
-    explicit MyPlugin(const edm::ParameterSet&);
-    ~MyPlugin(){};
+    explicit DisTauTag(const edm::ParameterSet&);
+    ~DisTauTag(){};
 
     static void fillDescriptions(edm::ConfigurationDescriptions&);
+
+    template<typename Scalar>
+    static Scalar getDeltaPhi(Scalar phi1, Scalar phi2);
+
+    static void fill_zero(tensorflow::Tensor&);
 
 private:
     void beginJob();
     void analyze(const edm::Event&, const edm::EventSetup&);
     void endJob();
-    const float Scale(const Int_t, const Float_t, const bool)
+
+    template <typename FeatureT>
+    const float Scale(const Int_t, const Float_t, const bool);
 
     std::string graphPath_;
 
@@ -50,7 +59,7 @@ private:
 
 };
 
-void MyPlugin::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+void DisTauTag::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     // defining this function will lead to a *_cfi file being generated when compiling
     edm::ParameterSetDescription desc;
     desc.add<std::string>("graphPath");
@@ -59,7 +68,7 @@ void MyPlugin::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     descriptions.addWithDefaultLabel(desc);
 }
 
-MyPlugin::MyPlugin(const edm::ParameterSet& config)
+DisTauTag::DisTauTag(const edm::ParameterSet& config)
     : graphPath_(config.getParameter<std::string>("graphPath")),
       jets_token(consumes<pat::JetCollection>(config.getParameter<edm::InputTag>("jets"))),
       cands_token(consumes<pat::PackedCandidateCollection>(config.getParameter<edm::InputTag>("pfCandidates"))),
@@ -69,7 +78,7 @@ MyPlugin::MyPlugin(const edm::ParameterSet& config)
   tensorflow::setLogging("2");
 }
 
-void MyPlugin::beginJob() {
+void DisTauTag::beginJob() {
 
     // load the graph
     graphDef_ = tensorflow::loadGraphDef(graphPath_);
@@ -78,7 +87,7 @@ void MyPlugin::beginJob() {
 
 }
 
-void MyPlugin::endJob() {
+void DisTauTag::endJob() {
     // close the session
     tensorflow::closeSession(session_);
 
@@ -87,25 +96,48 @@ void MyPlugin::endJob() {
     graphDef_ = nullptr;
 }
 
+template<typename Scalar>
+Scalar DisTauTag::getDeltaPhi(Scalar phi1, Scalar phi2)
+{
+    static constexpr Scalar pi = boost::math::constants::pi<Scalar>();
+    Scalar dphi = phi1 - phi2;
+    if(dphi > pi)
+        dphi -= 2*pi;
+    else if(dphi <= -pi)
+        dphi += 2*pi;
+    return dphi;
+};
+
+void DisTauTag::fill_zero(tensorflow::Tensor& tensor)
+{
+    size_t size_ = 1;
+    int num_dimensions = tensor.shape().dims();
+    for(int ii_dim=0; ii_dim<num_dimensions; ii_dim++)
+        size_=size_*tensor.shape().dim_size(ii_dim);
+    
+    for(size_t ii=0; ii<size_; ii++)
+        tensor.flat<float>()(ii) = 0.0;
+}
+
 template <typename FeatureT>
-const float MyPlugin::Scale(const Int_t idx, const Float_t value, const bool inner)
+const float DisTauTag::Scale(const Int_t idx, const Float_t value, const bool inner)
 {
     return std::clamp((value - FeatureT::mean.at(idx).at(inner)) / FeatureT::std.at(idx).at(inner),
                         FeatureT::lim_min.at(idx).at(inner), FeatureT::lim_max.at(idx).at(inner));
 }
 
-void MyPlugin::analyze(const edm::Event& event, const edm::EventSetup& setup) {
+void DisTauTag::analyze(const edm::Event& event, const edm::EventSetup& setup) {
 
-    std::cout << " -> Event started"<< std::endl;
+    std::cout << " -> Event started"<< std::endl << std::flush;
 
     auto jets = getHandle(event, jets_token);
     auto cands = getHandle(event, cands_token);
 
     // step 1: get jets
-    const size_t jets_size = jets.size();
+    const size_t jets_size = jets->size();
     for(size_t jetIndex = 0; jetIndex < jets_size; ++jetIndex)
     {
-      const auto& jet = jets.at(jetIndex);
+      const auto& jet = jets->at(jetIndex);
       const auto& jet_p4 = jet.polarP4();
 
        // step 2: get jet dughters
@@ -117,7 +149,7 @@ void MyPlugin::analyze(const edm::Event& event, const edm::EventSetup& setup) {
       std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
         const auto& daughter_1 = jet.daughterPtr(a);
         const auto& daughter_2 = jet.daughterPtr(b);
-        return daughter_1.pt() > daughter_2.pt();
+        return daughter_1->polarP4().pt() > daughter_2->polarP4().pt();
       });
 
       // step 4: mapping function for the scaling
@@ -125,84 +157,86 @@ void MyPlugin::analyze(const edm::Event& event, const edm::EventSetup& setup) {
                                 tensorflow::TensorShape({1, Setup::nSeq_PfCand, Setup::n_PfCand}));
       tensorflow::Tensor input_2(tensorflow::DT_FLOAT,
                                 tensorflow::TensorShape({1, Setup::nSeq_PfCand, Setup::n_PfCandCategorical}));
+    //   fill_zero(input_1);
+    //   fill_zero(input_2);
 
       size_t daughter_idx = 0;
       size_t tensor_idx = 0;
 
       while( tensor_idx < Setup::nSeq_PfCand && daughter_idx < nDaughters)
       {
-        const auto& daughter = jet.daughterPtr(indices.at(daughter_idx));
+        const auto& jet_daughter = jet.daughterPtr(indices.at(daughter_idx));
+        const auto daughter = dynamic_cast<const pat::PackedCandidate*>(jet_daughter.get());
         ++daughter_idx;
 
         auto getVecRef = [&](tensorflow::Tensor& tensor, auto _fe, Float_t value){
-          size_t _feature_idx = static_cast<size_t>(_fe);
+          const int _feature_idx = static_cast<int>(_fe);
           if(_feature_idx < 0) return;
           tensor.tensor<float, 3>()(0, tensor_idx, _feature_idx)
               = Scale<typename  FeaturesHelper<decltype(_fe)>::scaler_type>(_feature_idx, value, false);
         };
 
-        {   // Categorical features
-            typedef PfCandCategorical_Features Br;
-            getVecRef(input_1, Br::pfCand_particleType         ,static_cast<float>(TranslatePdgIdToPFParticleType(daughter.pdgId())));
-            getVecRef(input_1, Br::pfCand_pvAssociationQuality ,static_cast<float>(daughter.pvAssociationQuality()));
-            getVecRef(input_1, Br::pfCand_fromPV               ,static_cast<float>(daughter.fromPV()));
-        }
-
         {   // General features
             typedef PfCand_Features Br;
-            getVecRef(input_2, Br::pfCand_valid                ,1.0);
-            getVecRef(input_2, Br::pfCand_pt                   ,static_cast<float>(daughter->polarP4().pt()));
-            getVecRef(input_2, Br::pfCand_eta                  ,static_cast<float>(daughter->polarP4().eta()));
-            getVecRef(input_2, Br::pfCand_phi                  ,static_cast<float>(daughter->polarP4().phi()));
-            getVecRef(input_2, Br::pfCand_mass                 ,static_cast<float>(daughter->polarP4().mass()));
-            getVecRef(input_2, Br::pfCand_charge               ,static_cast<float>(daughter->charge()));
-            getVecRef(input_2, Br::pfCand_puppiWeight          ,static_cast<float>(daughter->puppiWeight()));
-            getVecRef(input_2, Br::pfCand_puppiWeightNoLep     ,static_cast<float>(daughter->puppiWeightNoLep()));
-            getVecRef(input_2, Br::pfCand_lostInnerHits        ,static_cast<float>(daughter->lostInnerHits()));
-            getVecRef(input_2, Br::pfCand_nPixelHits           ,static_cast<float>(daughter->numberOfPixelHits()));
-            getVecRef(input_2, Br::pfCand_nHits                ,static_cast<float>(daughter->numberOfHits()));
-            getVecRef(input_2, Br::pfCand_caloFraction         ,static_cast<float>(daughter->caloFraction()));
-            getVecRef(input_2, Br::pfCand_hcalFraction         ,static_cast<float>(daughter->hcalFraction()));
-            getVecRef(input_2, Br::pfCand_rawCaloFraction      ,static_cast<float>(daughter->rawCaloFraction()));
-            getVecRef(input_2, Br::pfCand_rawHcalFraction      ,static_cast<float>(daughter->rawHcalFraction()));
+            getVecRef(input_1, Br::pfCand_valid                ,1.0);
+            getVecRef(input_1, Br::pfCand_pt                   ,static_cast<float>(daughter->polarP4().pt()));
+            getVecRef(input_1, Br::pfCand_eta                  ,static_cast<float>(daughter->polarP4().eta()));
+            getVecRef(input_1, Br::pfCand_phi                  ,static_cast<float>(daughter->polarP4().phi()));
+            getVecRef(input_1, Br::pfCand_mass                 ,static_cast<float>(daughter->polarP4().mass()));
+            getVecRef(input_1, Br::pfCand_charge               ,static_cast<float>(daughter->charge()));
+            getVecRef(input_1, Br::pfCand_puppiWeight          ,static_cast<float>(daughter->puppiWeight()));
+            getVecRef(input_1, Br::pfCand_puppiWeightNoLep     ,static_cast<float>(daughter->puppiWeightNoLep()));
+            getVecRef(input_1, Br::pfCand_lostInnerHits        ,static_cast<float>(daughter->lostInnerHits()));
+            getVecRef(input_1, Br::pfCand_nPixelHits           ,static_cast<float>(daughter->numberOfPixelHits()));
+            getVecRef(input_1, Br::pfCand_nHits                ,static_cast<float>(daughter->numberOfHits()));
+            getVecRef(input_1, Br::pfCand_caloFraction         ,static_cast<float>(daughter->caloFraction()));
+            getVecRef(input_1, Br::pfCand_hcalFraction         ,static_cast<float>(daughter->hcalFraction()));
+            getVecRef(input_1, Br::pfCand_rawCaloFraction      ,static_cast<float>(daughter->rawCaloFraction()));
+            getVecRef(input_1, Br::pfCand_rawHcalFraction      ,static_cast<float>(daughter->rawHcalFraction()));
             
-            getVecRef(input_2, Br::pfCand_hasTrackDetails      ,daughter->hasTrackDetails());
-            if( tau.pfCand_hasTrackDetails.at(idx_srt) )
-            {   
-                if(std::isfinite(cand->dz()))        getVecRef(Br::pfCand_dz,       daughter->dz());
-                if(std::isfinite(cand->dzError()))   getVecRef(Br::pfCand_dz_error, daughter->dzError());
-                if(std::isfinite(cand->dxyError()))  getVecRef(Br::pfCand_dxy_error,daughter->dxyError());
+            getVecRef(input_1, Br::pfCand_hasTrackDetails      ,static_cast<float>(daughter->hasTrackDetails()));
 
-                getVecRef(input_2, Br::pfCand_dxy,        daughter->dxy());
-                getVecRef(input_2, Br::pfCand_track_chi2, daughter->track_chi2());
-                getVecRef(input_2, Br::pfCand_track_ndof, daughter->track_ndof());
+            if( daughter->hasTrackDetails() )
+            {   
+                if(std::isfinite(daughter->dz()))        getVecRef(input_1, Br::pfCand_dz,       static_cast<float>(daughter->dz()));
+                if(std::isfinite(daughter->dzError()))   getVecRef(input_1, Br::pfCand_dz_error, static_cast<float>(daughter->dzError()));
+                if(std::isfinite(daughter->dxyError()))  getVecRef(input_1, Br::pfCand_dxy_error,static_cast<float>(daughter->dxyError()));
+
+                getVecRef(input_1, Br::pfCand_dxy,        static_cast<float>(daughter->dxy()));
+                getVecRef(input_1, Br::pfCand_track_chi2, static_cast<float>(daughter->bestTrack()->chi2()));
+                getVecRef(input_1, Br::pfCand_track_ndof, static_cast<float>(daughter->bestTrack()->ndof()));
             }
             
-            if(tau.jet_index>=0)
-            {
-                Float_t jet_eta = jet_p4.eta();
-                Float_t jet_phi = jet_p4.phi();
-                getVecRef(input_2, PfCand_Features::pfCand_deta, static_cast<float>(daughter->polarP4().eta()) - jet_eta);
-                getVecRef(input_2, PfCand_Features::pfCand_dphi, DeltaPhi<Float_t>(static_cast<float>(daughter->polarP4().eta()), jet_phi));
-            }
+            float jet_eta = jet_p4.eta();
+            float jet_phi = jet_p4.phi();
+            getVecRef(input_1, PfCand_Features::pfCand_deta, static_cast<float>(daughter->polarP4().eta()) - jet_eta);
+            getVecRef(input_1, PfCand_Features::pfCand_dphi, getDeltaPhi<float>(static_cast<float>(daughter->polarP4().eta()), jet_phi));
+    
+        }
+
+        {   // Categorical features
+            typedef PfCandCategorical_Features Br;
+            getVecRef(input_2, Br::pfCand_particleType         ,static_cast<float>(TranslatePdgIdToPFParticleType(daughter->pdgId())));
+            getVecRef(input_2, Br::pfCand_pvAssociationQuality ,static_cast<float>(daughter->pvAssociationQuality()));
+            getVecRef(input_2, Br::pfCand_fromPV               ,static_cast<float>(daughter->fromPV()));
         }
 
         ++tensor_idx; 
 
       }
 
+      // define the output and run
+      std::vector<tensorflow::Tensor> outputs;
+      tensorflow::run(session_,
+                    {{"input_1", input_1}, {"input_2", input_2}},
+                    {"final_out"}, &outputs);
+
+      // print the output
+      std::cout << "jet -> " << jetIndex << " score -> " << outputs[0].flat<float>()(0)
+                << " " << outputs[0].flat<float>()(1) << std::endl;
     }
 
-    // define the output and run
-    std::vector<tensorflow::Tensor> outputs;
-    tensorflow::run(session_,
-                   {{"input_1", input_1}, {"input_2", input_2}},
-                   {"final_out"}, &outputs);
-
-    // print the output
-    std::cout << " score -> " << outputs[0].matrix<float>()(0, 0)  << outputs[0].matrix<float>()(0, 1) << std::endl << std::endl;
-
-    std::cout << " -> Event end"<< std::endl;
+    std::cout << " -> Event end"<< std::endl << std::flush;
 }
 
-DEFINE_FWK_MODULE(MyPlugin);
+DEFINE_FWK_MODULE(DisTauTag);
