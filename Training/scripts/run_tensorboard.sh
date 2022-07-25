@@ -16,10 +16,18 @@ DIRS=`readlink -f ${PATH_TO_MLFLOW}/*/*/artifacts`
 
 CMD=""
 for PATH_GLOB in ${DIRS[@]}; do
+
+    ls ${PATH_GLOB}/model_summary.txt || continue
     NAME=`cat ${PATH_GLOB}/model_summary.txt | awk '$1=="Model:"{print $2}'`
     echo $NAME " - added"
-    CMD+="${NAME}_train:${PATH_GLOB}/tensorboard_logs/train,"
-    CMD+="${NAME}_val:${PATH_GLOB}/tensorboard_logs/val,"
+    HASH=`awk -F "/" '{print $(NF-1)}' <<< $PATH_GLOB`
+    HASH=${HASH:0:5}
+    echo ${HASH}
+
+    CMD+="${NAME}_${HASH}_train:${PATH_GLOB}/tensorboard_logs/train,"
+    CMD+="${NAME}_${HASH}_val:${PATH_GLOB}/tensorboard_logs/validation,"
+    CMD+="${NAME}_${HASH}_steps:${PATH_GLOB}/tensorboard_logs/steps,"
+
 done
 
 CMD=`echo $CMD | head -c -2`

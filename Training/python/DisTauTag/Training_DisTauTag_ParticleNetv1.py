@@ -151,7 +151,7 @@ class ParticleNet(tf.keras.Model):
     # features:  (N, P, C_features)
     # mask: (N, P, 1), optinal
 
-    def __init__(self, setting=None, name='particle_net',cfg=None):
+    def __init__(self, name=None,cfg=None):
 
         super(ParticleNet, self).__init__()
 
@@ -243,7 +243,9 @@ def compile_model(model, learning_rate):
     opt = tf.keras.optimizers.Nadam(learning_rate=learning_rate, schedule_decay=1e-4)
     # opt = tf.keras.optimizers.Adam(learning_rate = learning_rate)
 
-    metrics = [tf.keras.metrics.BinaryAccuracy(), tf.keras.metrics.AUC()]
+    metrics = ["accuracy",
+               tf.keras.metrics.BinaryAccuracy(name='BinaryAccuracy'),
+               tf.keras.metrics.AUC(name='AUC', curve='ROC')]
     model.compile(loss='binary_crossentropy', optimizer=opt, metrics=metrics)
 
     # log metric names for passing them during model loading
@@ -275,11 +277,16 @@ def run_training(model, data_loader, to_profile, log_suffix):
     time_checkpoint = TimeCheckpoint(12*60*60, log_name)
     callbacks = [time_checkpoint, csv_log]
 
+    # does not allow perbatch logging: 
     logs = log_name + '_' + datetime.now().strftime("%Y.%m.%d(%H:%M)")
     tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
-                                                     profile_batch = ('100, 300' if to_profile else 0),
-                                                     update_freq = ( 0 if net_setups["n_batches_log"]<=0 else net_setups["n_batches_log"] ))
+                                                     profile_batch = ('100, 300' if to_profile else 0))
+                                                    #  update_freq = ( 0 if net_setups["n_batches_log"]<=0 else net_setups["n_batches_log"] ))
     callbacks.append(tboard_callback)
+
+    my_callback = LossLogCallback(logs, period = 0 if net_setups["n_batches_log"]<=0 else net_setups["n_batches_log"],
+                                  metrics_names=["loss", "accuracy", "BinaryAccuracy", "AUC"])
+    callbacks.append(my_callback)
 
     fit_hist = model.fit(data_train, validation_data = data_val,
                          epochs = net_setups["n_epochs"], initial_epoch = net_setups["epoch"],
@@ -320,7 +327,8 @@ def main(cfg: DictConfig) -> None:
         dl_config =  dataloader.config
 
 
-        model = ParticleNet(cfg=dl_config)
+        model = ParticleNet(name=dl_config["SetupBaseNN"]["model_name"], cfg=dl_config)
+        model._name = dl_config["SetupBaseNN"]["model_name"]
 
         # print(input_shape[0])
         # compile_build = tf.ones(input_shape[0], dtype=tf.float32, name=None)
