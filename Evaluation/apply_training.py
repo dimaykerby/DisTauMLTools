@@ -4,6 +4,7 @@ import json
 import git
 import glob
 from tqdm import tqdm
+from shutil import rmtree
 
 import uproot
 import numpy as np
@@ -79,6 +80,10 @@ def main(cfg: DictConfig) -> None:
         with uproot.open(input_file_name) as f:
             n_taus = f['taus'].num_entries
 
+        if cfg.save_input_names:
+            print("Tensors will be saved:",cfg.save_input_names)
+            X_saveinput = [ [] for _ in  range(len(cfg.save_input_names)) ]
+
         # run predictions
         predictions = []
         targets = []
@@ -89,9 +94,13 @@ def main(cfg: DictConfig) -> None:
 
             for (X,y), x_glob, indexes,size in gen_predict(input_file_name):
 
-                y_pred = np.zeros((size, y.shape[1]))
-                y_target = np.zeros((size, y.shape[1]))
-                glob_var = np.zeros((size, x_glob.shape[1]))
+                y_pred = np.zeros((size, y.shape[1])).astype(np.float32)
+                y_target = np.zeros((size, y.shape[1])).astype(np.float32)
+                glob_var = np.zeros((size, x_glob.shape[1])).astype(np.float32)
+
+                # y_pred.fill(-1)
+                # y_target.fill(-1)
+                glob_var.fill(-1)
 
                 if dataloader.config["Setup"]["input_type"]=="Adversarial":
                     y_pred[indexes] = model.predict(X)[0]
@@ -100,6 +109,13 @@ def main(cfg: DictConfig) -> None:
 
                 y_target[indexes] = y
                 glob_var[indexes] = x_glob
+
+                if cfg.save_input_names:
+                    assert(len(X) == len(cfg.save_input_names))
+                    for i, name in enumerate(cfg.save_input_names):
+                        X_save = np.full((size,) + X[i].shape[1:], -999).astype(np.float32)
+                        X_save[indexes] = X[i]
+                        X_saveinput[i].append(X_save)
 
                 predictions.append(y_pred)
                 targets.append(y_target)
@@ -122,18 +138,46 @@ def main(cfg: DictConfig) -> None:
 
 
         # store into intermediate hdf5 file
-        predictions = pd.DataFrame({f'node_{tau_type}': predictions[:, int(idx)] for idx, tau_type in tau_types_names.items()})
-        targets = pd.DataFrame({f'node_{tau_type}': targets[:, int(idx)] for idx, tau_type in tau_types_names.items()}, dtype=np.int64)
+        predictions = pd.DataFrame({f'node_{tau_type}_pred': predictions[:, int(idx)] for idx, tau_type in tau_types_names.items()})
+        targets = pd.DataFrame({f'node_{tau_type}_tar': targets[:, int(idx)] for idx, tau_type in tau_types_names.items()}, dtype=np.int64)
         propagated_vars = pd.DataFrame({f'{name}': propagated_vars[:, int(idx)] for name, idx in global_features.items()})
 
         predictions.to_hdf(f'{output_filename}.h5', key='predictions', mode='w', format='fixed', complevel=1, complib='zlib')
         targets.to_hdf(f'{output_filename}.h5', key='targets', mode='r+', format='fixed', complevel=1, complib='zlib')
         propagated_vars.to_hdf(f'{output_filename}.h5', key='propagated_vars', mode='r+', format='fixed', complevel=1, complib='zlib')
 
+        if cfg.save_input_names:
+            if not os.path.exists(f'{output_filename}_input'):
+                os.makedirs(f'{output_filename}_input')
+            assert(len(X_saveinput) == len(cfg.save_input_names))
+            for i, X_tensors in enumerate(X_saveinput):
+                X_saveinput[i] = np.concatenate(X_tensors, axis=0)
+            print("Saving tesnsors:")
+            with tqdm(total=n_taus) as pbar:
+                for jet_i in range (propagated_vars.shape[0]):
+                    run = int(propagated_vars["run"].iloc[jet_i])
+                    lumi = int(propagated_vars["lumi"].iloc[jet_i])
+                    evt = int(propagated_vars["evt"].iloc[jet_i])
+                    jet_index = int(propagated_vars["jet_index"].iloc[jet_i])
+                    if run==lumi==evt==jet_index==-1:
+                        pbar.update(1)
+                        continue
+                    # print(run, lumi, evt, jet_index)
+                    saved_arrays = {}
+                    for i, name in enumerate(cfg.save_input_names):
+                        saved_arrays[name] = X_saveinput[i][jet_i]
+                    np.save(f'{output_filename}_input/tensor_{run}_{lumi}_{evt}_jet_{jet_index}.npy',saved_arrays)
+                    pbar.update(1)
+
         # log to mlflow and delete intermediate file
         with mlflow.start_run(experiment_id=cfg.experiment_id, run_id=cfg.run_id) as active_run:
             mlflow.log_artifact(f'{output_filename}.h5', f'predictions/{cfg.sample_alias}')
         os.remove(f'{output_filename}.h5')
+
+        if cfg.save_input_names:
+            with mlflow.start_run(experiment_id=cfg.experiment_id, run_id=cfg.run_id) as active_run:
+                mlflow.log_artifact(f'{output_filename}_input', f'predictions/{cfg.sample_alias}')
+            rmtree(f'{output_filename}_input')
 
         # log mapping between prediction file and corresponding input file
         json_filemap_name = f'{path_to_artifacts}/predictions/{cfg.sample_alias}/pred_input_filemap.json'

@@ -161,11 +161,17 @@ public:
                 Setup::recompute_jet_type ? analysis::GetJetType(tau)
                 : static_cast<JetType>(tau.jetType); 
 
-            if (tau.jet_index >= 0 && jet_match_type)
+            if (jet_match_type)
             {
                 if(Setup::to_propagate_glob) FillGlob(data->tau_i, tau, jet_match_type);
                 data->y.at(data->tau_i * Setup::output_classes + static_cast<Int_t>(*jet_match_type)) = 1.0;
                 data->weights.at(data->tau_i) = GetWeight(static_cast<Int_t>(*jet_match_type), tau.jet_pt, std::abs(tau.jet_eta));
+                FillPfCand(data->tau_i, tau);
+                data->uncompress_index[data->tau_i] = data->uncompress_size;
+                ++(data->tau_i);
+            }
+            else if ( tau.jet_index >= 0 && Setup::include_mismatched ) {
+                if(Setup::to_propagate_glob) FillGlob(data->tau_i, tau, jet_match_type);
                 FillPfCand(data->tau_i, tau);
                 data->uncompress_index[data->tau_i] = data->uncompress_size;
                 ++(data->tau_i);
@@ -226,45 +232,46 @@ public:
         getGlobVecRef(Br::jet_pt, tau.jet_pt);
         getGlobVecRef(Br::jet_eta, tau.jet_eta);
 
-        if(jet_match_type == JetType::tau)
-        {
-            reco_tau::gen_truth::GenLepton genLeptons = 
-                reco_tau::gen_truth::GenLepton::fromRootTuple(
-                        tau.genLepton_lastMotherIndex,
-                        tau.genParticle_pdgId,
-                        tau.genParticle_mother,
-                        tau.genParticle_charge,
-                        tau.genParticle_isFirstCopy,
-                        tau.genParticle_isLastCopy,
-                        tau.genParticle_pt,
-                        tau.genParticle_eta,
-                        tau.genParticle_phi,
-                        tau.genParticle_mass,
-                        tau.genParticle_vtx_x,
-                        tau.genParticle_vtx_y,
-                        tau.genParticle_vtx_z);
-
-            auto vertex = genLeptons.lastCopy().vertex;
-
-            if( std::abs(genLeptons.lastCopy().pdgId) != 15 )
-                throw std::runtime_error("Error FillGlob: last copy of genLeptons is not tau.");
-
-            // get the displacement wrt to the primary vertex
-            auto Lrel = genLeptons.lastCopy().getDisplacement();
-            getGlobVecRef(Br::Lrel, Lrel);
-            getGlobVecRef(Br::Lxy, std::abs(vertex.rho()));
-            getGlobVecRef(Br::Lz, std::abs(vertex.z()));
-        }
-        else if(jet_match_type == JetType::jet)
-        {
-            getGlobVecRef(Br::Lxy, -1);
-            getGlobVecRef(Br::Lz, -1);
-            getGlobVecRef(Br::Lrel, -1);
-        }
-        else 
-            throw std::runtime_error("Error FillGlob: non valid JetType");
-
+        getGlobVecRef(Br::Lxy, -1);
+        getGlobVecRef(Br::Lz, -1);
+        getGlobVecRef(Br::Lrel, -1);
         
+        getGlobVecRef(Br::jet_index, tau.jet_index);
+        getGlobVecRef(Br::run, tau.run);
+        getGlobVecRef(Br::lumi, tau.lumi);
+        getGlobVecRef(Br::evt, tau.evt);
+
+        if(jet_match_type)
+        {
+            if(jet_match_type == JetType::tau)
+            {
+                reco_tau::gen_truth::GenLepton genLeptons = 
+                    reco_tau::gen_truth::GenLepton::fromRootTuple(
+                            tau.genLepton_lastMotherIndex,
+                            tau.genParticle_pdgId,
+                            tau.genParticle_mother,
+                            tau.genParticle_charge,
+                            tau.genParticle_isFirstCopy,
+                            tau.genParticle_isLastCopy,
+                            tau.genParticle_pt,
+                            tau.genParticle_eta,
+                            tau.genParticle_phi,
+                            tau.genParticle_mass,
+                            tau.genParticle_vtx_x,
+                            tau.genParticle_vtx_y,
+                            tau.genParticle_vtx_z);
+
+                auto vertex = genLeptons.lastCopy().vertex;
+                if( std::abs(genLeptons.lastCopy().pdgId) != 15 )
+                    throw std::runtime_error("Error FillGlob: last copy of genLeptons is not tau.");
+                // get the displacement wrt to the primary vertex
+                auto Lrel = genLeptons.lastCopy().getDisplacement();
+
+                getGlobVecRef(Br::Lrel, Lrel);
+                getGlobVecRef(Br::Lxy, std::abs(vertex.rho()));
+                getGlobVecRef(Br::Lz, std::abs(vertex.z()));
+            }
+        }
     }
 
     void FillPfCand(const Long64_t tau_i,

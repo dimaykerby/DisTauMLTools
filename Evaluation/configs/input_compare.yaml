@@ -1,0 +1,25 @@
+
+# mlflow info
+path_to_mlflow: ???
+experiment_id: ???
+run_id: ???
+
+path_to_input_dir: ???
+sample_alias: ??? 
+input_filename: ??? # without file extension
+
+mode:
+  - compare_ids
+  - compare_input
+
+tensor_map:
+    PfCand : ["PfCand"]
+    PfCandCategorical  :  [ PfCandCategorical ]
+
+# comperison of one json file to one numpy file
+cmssw_input:
+    jet_index : 9
+    run       : 1
+    lumi      : 12281
+    evt       : 1228042
+    input_dir : "/nfs/dust/cms/user/mykytaua/softLLSTAU/LLStaus_Run2/soft/CMSSW_12_4_0/src/"

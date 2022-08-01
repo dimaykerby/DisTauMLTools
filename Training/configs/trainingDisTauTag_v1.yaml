@@ -13,6 +13,7 @@ Setup:
     weight_thr           : 1000
 
     to_propagate_glob    : False # This probagate Glob features (needed for evaluation)
+    include_mismatched   : False
 
     
     # here define variables for the Histogram_2D class
@@ -159,6 +160,10 @@ Features_all :
           - Lxy       : null # gen level tau decay xy vertex in detector coordinates
           - Lz        : null # gen level tau decay z vertex in detector coordinates
           - Lrel      : null # absolute displacment wrt to the primary vertex
+          - jet_index : null
+          - run       : null
+          - lumi      : null
+          - evt       : null
 
     PfCand :
           - pfCand_valid                : [ *jet_valid, null, "categorical"]

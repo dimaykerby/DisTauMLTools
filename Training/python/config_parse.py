@@ -162,9 +162,9 @@ def create_scaling_input(input_scaling_file: str, training_cfg_data: dict, verbo
 
     def conv_str(input) -> str:
         if(input == "-inf"):
-            return "-std::numeric_limits<double>::infinity()"
+            return "-std::numeric_limits<float>::infinity()"
         elif(input == "inf"):
-            return "std::numeric_limits<double>::infinity()"
+            return "std::numeric_limits<float>::infinity()"
         else:
             return str(input)
 
