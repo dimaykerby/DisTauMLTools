@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import load_model
+from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2_as_graph
 import cmsml
 
 import mlflow
@@ -73,6 +74,22 @@ def main(cfg: DictConfig) -> None:
         output = model((input_1,input_2))
         final_out = tf.identity(output, name="final_out")
         return final_out
+
+    def get_flops(model_sign_):
+        concrete_func = model_sign_.get_concrete_function(tf.TensorSpec(shape=input_shape_tuple[0], dtype=tensor_type[0][0]),
+                                                     tf.TensorSpec(shape=input_shape_tuple[1], dtype=tensor_type[0][1]))
+
+        frozen_func, graph_def = convert_variables_to_constants_v2_as_graph(concrete_func)
+        with tf.Graph().as_default() as graph:
+            tf.graph_util.import_graph_def(graph_def, name='')
+
+            run_meta = tf.compat.v1.RunMetadata()
+            opts = tf.compat.v1.profiler.ProfileOptionBuilder.float_operation()
+            flops = tf.compat.v1.profiler.profile(graph=graph, run_meta=run_meta, cmd="op", options=opts)
+
+            return flops.total_float_ops
+
+    print(get_flops(model_sign))
 
     # convert to binary (.pb extension) protobuf
     # with variables converted to constants
