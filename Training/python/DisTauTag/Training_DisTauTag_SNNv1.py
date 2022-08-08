@@ -18,6 +18,7 @@ from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Input, Dense, Conv2D, Dropout, AlphaDropout, Activation, BatchNormalization, Flatten, \
                                     Concatenate, PReLU, TimeDistributed, LSTM, Masking
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, CSVLogger
+from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2_as_graph
 from datetime import datetime
 
 import mlflow
@@ -85,17 +86,19 @@ class SpaceEdgeConv(tf.keras.layers.Layer):
         W = tf.math.exp(-10*D)  # (N, P, P, 1)
         
         a   = tf.tile(x, (1, P, 1))   # (N, P*P, n_features)
-        na   = tf.reshape(a, (N, P, P,-1))   # (N, P, P, n_features)
+        na   = tf.reshape(a, (N, P, P, -1))   # (N, P, P, n_features)
 
         mask = tf.expand_dims(mask, axis=-1)    # (N, P, 1)
         mask_dim = tf.tile(mask, (1, P ,1))    # (N, P*P, 1)
-        mask_dim = tf.reshape(mask_dim, (N, P, P,1))    # (N, P, P, 1)
+        mask_dim = tf.reshape(mask_dim, (N, P, P,1))    # (N, P, P, 1)        
 
         s = na * W * mask_dim   # (N, P, P, n_features)
-        ss = tf.math.reduce_sum(s, axis = 1)    # (N, P, n_features)
+        ss = tf.reduce_sum(s, axis=2)
+        norm_ = tf.reduce_sum(mask_dim, axis = 2)      
 
         # need to substruct the personal features because they were counted in the 's' summ
-        ss = ss - x     # (N, P, n_features) 
+        ss = ss - x
+        ss = ss/norm_
         x = tf.concat((x, ss), axis = 2)    # (N, P, n_features*2)
 
         ### Ax+b:
@@ -168,6 +171,7 @@ class SpaceParticleNet(tf.keras.Model):
         
         xx_emb = [self.embedding[i](x_cat[:,:,i]) for i in range(self.embedding_n)]
         
+        
         x = tf.concat((*xx_emb,x), axis = 2) # (N, P, n_categorical + n_pf_features)
         x0 = x
         for i in range(len(self.EdgeConv_layers)):
@@ -180,6 +184,9 @@ class SpaceParticleNet(tf.keras.Model):
                     x0 = x
             x = self.EdgeConv_bnorm_layers[i](x)
             x = self.EdgeConv_acti_layers[i](x)
+            #if(self.wiring_period>0):
+             #   if(i % self.wiring_period == 0 and i > 0):
+              #      x0 = x            
             if(self.dropout_rate > 0):
                 x = self.EdgeConv_dropout_layers[i](x)
 
@@ -301,6 +308,7 @@ def main(cfg: DictConfig) -> None:
         mlflow.log_artifacts('.hydra', 'input_cfg/hydra')
         mlflow.log_artifact('Training_DisTauTag_SNNv1.log', 'input_cfg/hydra')
         mlflow.log_param('run_id', run_id)
+        
         print(f'\nTraining has finished! Corresponding MLflow experiment name (ID): {cfg.experiment_name}({run_kwargs["experiment_id"]}), and run ID: {run_id}\n')
 
 
