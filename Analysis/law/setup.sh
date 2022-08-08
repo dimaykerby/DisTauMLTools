@@ -14,7 +14,7 @@ action() {
     export ANALYSIS_PATH="$this_dir"
     export ANALYSIS_DATA_PATH="$ANALYSIS_PATH/data"
 
-    source "/afs/desy.de/user/r/riegerma/public/law_sw/setup.sh" ""
+    # source "/afs/desy.de/user/r/riegerma/public/law_sw/setup.sh" ""
     source "$( law completion )" ""
 }
 action

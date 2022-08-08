@@ -41,6 +41,8 @@ action() {
     fi
     unset __conda_setup
     conda activate {{conda_env}}
+    export LD_LIBRARY_PATH="{{conda_path}}/envs/{{conda_env}}/lib/:$LD_LIBRARY_PATH"
+
     if [ $? -ne 0 ]; then
       echo "Unrecognized conda environment: {{conda_env}}"
     else

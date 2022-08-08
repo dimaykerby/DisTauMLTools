@@ -37,6 +37,13 @@ class Training(Task, HTCondorWorkflow, law.LocalWorkflow):
 
         # render_variables are rendered into all files sent with a job
         config.render_variables["analysis_path"] = main_dir
+        config.render_variables["cmssw_base"]    = str(os.getenv('CMSSW_BASE'))
+        config.render_variables["environment"]   = self.environment
+        if self.environment == "conda":
+            config.render_variables["conda_path"]    = '/'.join(os.environ['CONDA_EXE'].split('/')[:-2])
+            config.render_variables["conda_env"]     = os.environ['CONDA_DEFAULT_ENV']
+        config.render_variables["pythonpath"]    = os.environ['PYTHONPATH']
+        config.render_variables["path"]          = os.environ['PATH']
 
         if bool(self.enable_gpu):
             config.custom_content.append('Request_GPUs = 1')
