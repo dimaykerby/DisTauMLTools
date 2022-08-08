@@ -107,7 +107,7 @@ class SpaceEdgeConv(tf.keras.layers.Layer):
         ss = tf.reduce_sum(s, axis=2)
 
         #tensorrr = tf.reduce_sum(mask_dim-diag_tensor,axis=2)
-        norm_ = tf.tile(tf.reduce_sum(mask_dim*diag_tensor, axis=2),(1,1,x_shape[2]))         
+        norm_ = tf.tile(tf.reduce_sum(mask_dim, axis=2),(1,1,x_shape[2]))         
 
         # need to substruct the personal features because they were counted in the 's' summ
         ss = ss - x     # (N, P, n_features)
