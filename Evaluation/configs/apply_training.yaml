@@ -27,6 +27,7 @@ scaling_cfg: ${path_to_mlflow}/${experiment_id}/${run_id}/artifacts/input_cfg/sc
 # input path and file name
 path_to_input_dir: ???
 input_filename: null # without file extension
+prediction_overwrite: True
 
 # output path and file name // will store prediction file in -> artifacts/predictions/{sample_alias}/{output_filename}.h5 
 sample_alias: ??? 

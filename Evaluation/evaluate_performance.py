@@ -25,6 +25,16 @@ def main(cfg: DictConfig) -> None:
     # init Discriminator() class from filtered input configuration
     field_names = set(f_.name for f_ in fields(eval_tools.Discriminator))
     init_params = {k:v for k,v in cfg.discriminator.items() if k in field_names}
+    if 'wp_thresholds' in init_params:
+        if not (isinstance(init_params['wp_thresholds'], DictConfig) or isinstance(init_params['wp_thresholds'], dict)):
+            if isinstance(init_params['wp_thresholds'], str): # assume that it's the filename to read WPs from
+                with open(f"{path_to_artifacts}/{init_params['wp_thresholds']}", 'r') as f:
+                    wp_thresholds = json.load(f)
+                init_params['wp_thresholds'] = wp_thresholds[cfg['vs_type']] # pass laoded dict with thresholds to Discriminator() class
+            else:
+                raise RuntimeError(f"Expect `wp_thresholds` argument to be either dict-like or str, but got the type: {type(init_params['wp_thresholds'])}")
+    else:
+        wp_thresholds = None
     discriminator = eval_tools.Discriminator(**init_params)
     
     # init PlotSetup() class from filtered input configuration
@@ -61,7 +71,20 @@ def main(cfg: DictConfig) -> None:
     # exit()
 
     # apply selection
-    if cfg.cuts is not None: df_all = df_all.query(cfg.cuts)
+    if cfg['cuts'] is not None:
+        df_all = df_all.query(cfg.cuts)
+    if cfg['WPs_to_require'] is not None:
+        for wp_vs_type, wp_name in cfg['WPs_to_require'].items():
+            if wp_thresholds is not None:
+                wp_thr = wp_thresholds[wp_vs_type][wp_name]
+            else:
+                if cfg['discriminator']['wp_thresholds_map'] is not None:
+                    wp_thr = cfg['discriminator']['wp_thresholds_map'][wp_vs_type][wp_name]
+                else:
+                    raise RuntimeError('WP thresholds either via wp_thresholds_map or via input json file are not provided.')
+            wp_cut = f"{cfg['discriminator']['pred_column_prefix']}{wp_vs_type} > {wp_thr}"
+            df_all = df_all.query(wp_cut)
+        
 
     # # inverse scaling
     # df_all['tau_pt'] = df_all.tau_pt*(1000 - 20) + 20
@@ -73,8 +96,7 @@ def main(cfg: DictConfig) -> None:
         if json_exists: # read performance data to append additional info 
             performance_data = json.load(json_file)
         else: # create dictionary to fill with data
-            performance_data = {'name': discriminator.name, 'period': cfg.period, 'metrics': defaultdict(list), 
-                                'roc_curve': defaultdict(list), 'roc_wp': defaultdict(list)}
+            performance_data = {'name': discriminator.name, 'period': cfg.period, 'metrics': defaultdict(list)}
 
         # loop over pt bins
         print(f'\n{discriminator.name}')

@@ -74,11 +74,23 @@ def main(cfg: DictConfig) -> None:
                           else cfg.output_filename
         if os.path.exists(f'{path_to_artifacts}/predictions/{cfg.sample_alias}/{output_filename}.h5'):
             print("File exists: ", f'{path_to_artifacts}/predictions/{cfg.sample_alias}/{output_filename}.h5')
-            continue
+            if not cfg.prediction_overwrite:
+                continue
 
         # open input file
         with uproot.open(input_file_name) as f:
             n_taus = f['taus'].num_entries
+            tau_indexes = f['taus'].arrays(['evt','tau_index'], library="np")
+            tau_indexes = [ tau_indexes['evt'].tolist(), tau_indexes['tau_index'].tolist() ]
+
+            if cfg.toKeepID:
+                print("Adding IDs:",cfg.toKeepID)
+                toKeep = ["tau_"+id_ for id_ in cfg.toKeepID]
+                deeptau_ids =  f['taus'].arrays(toKeep, library="pd")
+            
+        if cfg.save_input_names:
+            print("Tensors will be saved:",cfg.save_input_names)
+            X_saveinput = [ [] for _ in  range(len(cfg.save_input_names)) ]
 
         if cfg.save_input_names:
             print("Tensors will be saved:",cfg.save_input_names)
@@ -89,7 +101,6 @@ def main(cfg: DictConfig) -> None:
         targets = []
         propagated_vars = []
         if cfg.verbose: print(f'\n\n--> Processing file {input_file_name}, number of taus: {n_taus}\n')
-
         with tqdm(total=n_taus) as pbar:
 
             for (X,y), x_glob, indexes,size in gen_predict(input_file_name):
@@ -116,7 +127,6 @@ def main(cfg: DictConfig) -> None:
                         X_save = np.full((size,) + X[i].shape[1:], -999).astype(np.float32)
                         X_save[indexes] = X[i]
                         X_saveinput[i].append(X_save)
-
                 predictions.append(y_pred)
                 targets.append(y_target)
                 propagated_vars.append(glob_var)
@@ -167,6 +177,30 @@ def main(cfg: DictConfig) -> None:
                     for i, name in enumerate(cfg.save_input_names):
                         saved_arrays[name] = X_saveinput[i][jet_i]
                     np.save(f'{output_filename}_input/tensor_{run}_{lumi}_{evt}_jet_{jet_index}.npy',saved_arrays)
+                    pbar.update(1)
+
+        # store DeepTau IDs:
+        if cfg.toKeepID:
+            assert(deeptau_ids.shape[0] == predictions.shape[0])
+            assert(deeptau_ids.shape[0] == len(tau_indexes[0]))
+            assert(deeptau_ids.shape[0] == len(tau_indexes[1]))
+            deeptau_ids['event'] = tau_indexes[0]
+            deeptau_ids['tau_idx'] = tau_indexes[1]
+            deeptau_ids.to_hdf(f'{output_filename}.h5', key='deeptauIDs', mode='r+', format='fixed', complevel=1, complib='zlib')
+
+        if cfg.save_input_names:
+            if not os.path.exists(f'{output_filename}_input'):
+                os.makedirs(f'{output_filename}_input')
+            assert(len(X_saveinput) == len(cfg.save_input_names))
+            for i, X_tensors in enumerate(X_saveinput):
+                X_saveinput[i] = np.concatenate(X_tensors, axis=0)
+            print("Saving tesnsors:")
+            with tqdm(total=n_taus) as pbar:
+                for tau_i, (evnt, idx) in enumerate(zip(tau_indexes[0],tau_indexes[1])):
+                    saved_arrays = {}
+                    for i, name in enumerate(cfg.save_input_names):
+                        saved_arrays[name] = X_saveinput[i][tau_i]
+                    np.save(f'{output_filename}_input/tensor_{evnt}_{idx}.npy',saved_arrays)
                     pbar.update(1)
 
         # log to mlflow and delete intermediate file
