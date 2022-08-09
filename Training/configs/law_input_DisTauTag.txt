@@ -1,0 +1,2 @@
+python ./Training_DisTauTag_SNNv1.py experiment_name=full_training_v4_law 'training_cfg.SetupBaseNN.model_name=SNNv1'
+python ./Training_DisTauTag_ParticleNetv1.py experiment_name=full_training_v4_law 'training_cfg.SetupBaseNN.model_name=ParticleNetv1'
