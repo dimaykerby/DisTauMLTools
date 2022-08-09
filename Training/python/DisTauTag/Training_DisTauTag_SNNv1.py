@@ -63,7 +63,7 @@ class SpaceEdgeConv(tf.keras.layers.Layer):
         self.regu_rate    = regu_rate
 
     def build(self, input_shape):
-        self.A = self.add_weight("A", shape=(input_shape[-1]* 2, self.num_outputs),
+        self.A = self.add_weight("A", shape=(input_shape[-1]* 3-1, self.num_outputs),
                                 regularizer=False if self.regu_rate < 0 else tf.keras.regularizers.L2(l2=self.regu_rate),
                                 initializer="he_uniform", trainable=True)
         self.b = self.add_weight("b", shape=(self.num_outputs,),
@@ -74,38 +74,57 @@ class SpaceEdgeConv(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return [input_shape[0], input_shape[1], self.num_outputs]
 
-    @tf.function
+     @tf.function
     def call(self, x, mask):
 
         x_shape = tf.shape(x)
         N, P = x_shape[0], x_shape[1]
 
-        coor = x[:,:,-self.n_dim:]
-        D = batch_distance_matrix_general(coor,coor)    # (N, P, P)
-        D = tf.expand_dims(D, axis=-1)  # (N, P, P, 1)
-        W = tf.math.exp(-10*D)  # (N, P, P, 1)
-        
-        a   = tf.tile(x, (1, P, 1))   # (N, P*P, n_features)
-        na   = tf.reshape(a, (N, P, P, -1))   # (N, P, P, n_features)
+        x_0 = tf.reshape(tf.tile(x,(1,P,1)),(N, P, P, -1)) # (N, P, P, n_features)
+
+        coor1 = x_0[:,:,:,-1:]
+        coor2 = x_0[:,:,:,-2:-1]
+
+        x1 = x_0-coor1
+        x2 = x_0-coor2
+
+        D1 = tf.math.abs(x1[:,:,:,-1:])
+        D2 = tf.math.abs(x2[:,:,:,-2:-1])
+
+        W1 = tf.math.exp(-10*D1)  # (N, P, P, 1)
+        W2 = tf.math.exp(-10*D2)  # (N, P, P, 1)
+       
+        a1   = tf.tile(tf.concat((x[:, :, :-2],x[:, :, -1:]),axis=2), (1, P, 1))   # (N, P*P, n_features-1)
+        na1   = tf.reshape(a1, (N, P, P, -1))   # (N, P, P, n_features-1)
+
+        a2   = tf.tile(x[:, :, :-1], (1, P, 1))   # (N, P*P, n_features-1)
+        na2   = tf.reshape(a2, (N, P, P, -1))   # (N, P, P, n_features-1)   
 
         mask = tf.expand_dims(mask, axis=-1)    # (N, P, 1)
         mask_dim = tf.tile(mask, (1, P ,1))    # (N, P*P, 1)
         mask_dim = tf.reshape(mask_dim, (N, P, P,1))    # (N, P, P, 1)        
 
-        s = na * W * mask_dim   # (N, P, P, n_features)
-        ss = tf.reduce_sum(s, axis=2)
-        norm_ = tf.reduce_sum(mask_dim, axis = 2)      
+        s1 = na1 * W1 * mask_dim
+        s2 = na2 * W2 * mask_dim
+
+        ss1 = tf.reduce_sum(s1, axis=2)
+        ss2 = tf.reduce_sum(s2, axis=2)
+
+        norm_ = tf.reduce_sum(mask_dim, axis = 2)       
 
         # need to substruct the personal features because they were counted in the 's' summ
-        ss = ss - x
-        ss = ss/norm_
-        x = tf.concat((x, ss), axis = 2)    # (N, P, n_features*2)
+        ss1 = ss1 - tf.concat((x[:, :, :-2],x[:, :, -1:]),axis=2)
+        ss2 = ss2-x[:, :, :-1]
+        ss1 = ss1/norm_
+        ss2 = ss2/norm_
+
+        x = tf.concat((x, ss1, ss2), axis = 2)    # (N, P, n_features*2)
 
         ### Ax+b:
         output = tf.matmul(x, self.A) + self.b
         output = output * mask # reapply mask to be sure
 
-        return output
+        return output 
 
 class SpaceParticleNet(tf.keras.Model):
 
