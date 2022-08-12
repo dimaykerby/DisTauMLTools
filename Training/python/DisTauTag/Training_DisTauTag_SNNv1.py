@@ -199,9 +199,9 @@ class SpaceParticleNet(tf.keras.Model):
                 x = self.EdgeConv_dropout_layers[i](x)
 
         x_mask = tf.expand_dims(x_mask, axis=-1)
-        x_sum = tf.reduce_sum(x * x_mask, axis=1)
         x_mean = tf.reduce_mean(x * x_mask, axis=1)
-        x = tf.concat([x_sum, x_mean], axis=1)
+        x_max = tf.reduce_max(x * x_mask, axis=1)
+        x = tf.concat([x_mean, x_max], axis=1)
 
         for i in range(len(self.dense_layers)):
             x = self.dense_layers[i](x)
