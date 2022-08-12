@@ -38,9 +38,9 @@ import DataLoaderReco
 @tf.function
 def batch_distance_matrix_general(A, B):
     with tf.name_scope('dmat'):
-        r_A = tf.reduce_sum(A * A, axis=2, keepdims=True)
-        r_B = tf.reduce_sum(B * B, axis=2, keepdims=True)
-        m = tf.matmul(A, tf.transpose(B, perm=(0, 2, 1)))
+        r_A = tf.reduce_sum(A * A, axis=2, keepdims=True) #[N, P, 1]
+        r_B = tf.reduce_sum(B * B, axis=2, keepdims=True) #[N, P, 1]
+        m = tf.matmul(A, tf.transpose(B, perm=(0, 2, 1))) #[N, P, P]
         D = r_A - 2 * m + tf.transpose(r_B, perm=(0, 2, 1))
         return D
 
@@ -61,9 +61,9 @@ class SpaceEdgeConv(tf.keras.layers.Layer):
         self.n_dim        = n_dim
         self.num_outputs  = num_outputs
         self.regu_rate    = regu_rate
-
+        
     def build(self, input_shape):
-        self.A = self.add_weight("A", shape=(input_shape[-1]* 3-1, self.num_outputs),
+        self.A = self.add_weight("A", shape=(input_shape[-1]*2, self.num_outputs),
                                 regularizer=False if self.regu_rate < 0 else tf.keras.regularizers.L2(l2=self.regu_rate),
                                 initializer="he_uniform", trainable=True)
         self.b = self.add_weight("b", shape=(self.num_outputs,),
@@ -74,51 +74,32 @@ class SpaceEdgeConv(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return [input_shape[0], input_shape[1], self.num_outputs]
 
-     @tf.function
+    @tf.function
     def call(self, x, mask):
 
         x_shape = tf.shape(x)
         N, P = x_shape[0], x_shape[1]
 
-        x_0 = tf.reshape(tf.tile(x,(1,P,1)),(N, P, P, -1)) # (N, P, P, n_features)
-
-        coor1 = x_0[:,:,:,-1:]
-        coor2 = x_0[:,:,:,-2:-1]
-
-        x1 = x_0-coor1
-        x2 = x_0-coor2
-
-        D1 = tf.math.abs(x1[:,:,:,-1:])
-        D2 = tf.math.abs(x2[:,:,:,-2:-1])
-
-        W1 = tf.math.exp(-10*D1)  # (N, P, P, 1)
-        W2 = tf.math.exp(-10*D2)  # (N, P, P, 1)
-       
-        a1   = tf.tile(tf.concat((x[:, :, :-2],x[:, :, -1:]),axis=2), (1, P, 1))   # (N, P*P, n_features-1)
-        na1   = tf.reshape(a1, (N, P, P, -1))   # (N, P, P, n_features-1)
-
-        a2   = tf.tile(x[:, :, :-1], (1, P, 1))   # (N, P*P, n_features-1)
-        na2   = tf.reshape(a2, (N, P, P, -1))   # (N, P, P, n_features-1)   
+        coor = x[:,:,-self.n_dim:]
+        D = batch_distance_matrix_general(coor,coor)    # (N, P, P)
+        D = tf.expand_dims(D, axis=-1)  # (N, P, P, 1)
+        W = tf.math.exp(-10*D)
+        
+        a   = tf.tile(x, (1, P, 1))   # (N, P*P, n_features)
+        na   = tf.reshape(a, (N, P, P, -1))   # (N, P, P, n_features)
 
         mask = tf.expand_dims(mask, axis=-1)    # (N, P, 1)
         mask_dim = tf.tile(mask, (1, P ,1))    # (N, P*P, 1)
         mask_dim = tf.reshape(mask_dim, (N, P, P,1))    # (N, P, P, 1)        
 
-        s1 = na1 * W1 * mask_dim
-        s2 = na2 * W2 * mask_dim
-
-        ss1 = tf.reduce_sum(s1, axis=2)
-        ss2 = tf.reduce_sum(s2, axis=2)
-
-        norm_ = tf.reduce_sum(mask_dim, axis = 2)       
+        s = na * W * mask_dim   # (N, P, P, n_features)
+        ss = tf.reduce_sum(s, axis=2)
+        norm_ = tf.reduce_sum(mask_dim, axis = 2)      
 
         # need to substruct the personal features because they were counted in the 's' summ
-        ss1 = ss1 - tf.concat((x[:, :, :-2],x[:, :, -1:]),axis=2)
-        ss2 = ss2-x[:, :, :-1]
-        ss1 = ss1/norm_
-        ss2 = ss2/norm_
-
-        x = tf.concat((x, ss1, ss2), axis = 2)    # (N, P, n_features*2)
+        ss = ss - x
+        ss = ss/norm_
+        x = tf.concat((x, ss), axis = 2)    # (N, P, n_features*2)
 
         ### Ax+b:
         output = tf.matmul(x, self.A) + self.b
@@ -134,6 +115,7 @@ class SpaceParticleNet(tf.keras.Model):
 
         self.map_features = dl_config["input_map"]["PfCand"]
 
+        self.conv1D_params = dl_config["SetupSNN"]["conv1D_params"]
         self.conv_params = dl_config["SetupSNN"]["conv_params"]
         self.dense_params = dl_config["SetupSNN"]["dense_params"]
         self.wiring_period = dl_config["SetupSNN"]["wiring_period"]
@@ -141,9 +123,10 @@ class SpaceParticleNet(tf.keras.Model):
         self.regu_rate = dl_config["SetupSNN"]["regu_rate"]
         self.output_labels = dl_config["Setup"]["output_classes"]
 
-        self.embedding_n       = dl_config["n_features"]["PfCandCategorical"]
-        self.embedding         = self.embedding_n * [None]
+        #self.embedding_n       = dl_config["n_features"]["PfCandCategorical"]
+        #self.embedding         = self.embedding_n * [None]
 
+        self.Conv1D_layers           = []
         self.EdgeConv_layers         = []
         self.EdgeConv_bnorm_layers   = []
         self.EdgeConv_acti_layers    = []
@@ -157,10 +140,13 @@ class SpaceParticleNet(tf.keras.Model):
 
         # enumerate embedding in the correct order
         # based on enume class PfCandCategorical
-        for var in dl_config["input_map"]["PfCandCategorical"]:
-            self.embedding[dl_config["input_map"]["PfCandCategorical"][var]] = \
-                tf.keras.layers.Embedding(dl_config['embedded_param']['PfCandCategorical'][var][0],
-                                          dl_config['embedded_param']['PfCandCategorical'][var][1])
+        #for var in dl_config["input_map"]["PfCandCategorical"]:
+        #    self.embedding[dl_config["input_map"]["PfCandCategorical"][var]] = \
+        #        tf.keras.layers.Embedding(dl_config['embedded_param']['PfCandCategorical'][var][0],
+        #                                  dl_config['embedded_param']['PfCandCategorical'][var][1])
+
+        for idx, channel in enumerate(self.conv1D_params):
+            self.Conv1D_layers.append(keras.layers.Conv1D(channel, kernel_size=1, name='Conv1D_{}'.format(idx), activation = 'relu'))
 
         for i,(n_dim, n_output) in enumerate(self.conv_params):
             self.EdgeConv_layers.append(SpaceEdgeConv(n_dim=n_dim, num_outputs=n_output, regu_rate = self.regu_rate, name='EdgeConv_{}'.format(i)))
@@ -188,10 +174,16 @@ class SpaceParticleNet(tf.keras.Model):
         x_cat = input_[1]
         x_mask = x[:,:,self.map_features['pfCand_valid']]
         
-        xx_emb = [self.embedding[i](x_cat[:,:,i]) for i in range(self.embedding_n)]
+        #xx_emb = [self.embedding[i](x_cat[:,:,i]) for i in range(self.embedding_n)]
         
+           
+        x = tf.concat((x_cat,x), axis = 2) # (N, P, n_categorical + n_pf_features)
         
-        x = tf.concat((*xx_emb,x), axis = 2) # (N, P, n_categorical + n_pf_features)
+        coor = x[:,:,-2:]
+        for i in range(len(self.Conv1D_layers)):
+            x = self.Conv1D_layers[i](x)
+        x = tf.concat([x, coor], axis=2)    
+        
         x0 = x
         for i in range(len(self.EdgeConv_layers)):
             if(self.wiring_period>0):
@@ -202,16 +194,14 @@ class SpaceParticleNet(tf.keras.Model):
                 if(i % self.wiring_period == 0 and i > 0):
                     x0 = x
             x = self.EdgeConv_bnorm_layers[i](x)
-            x = self.EdgeConv_acti_layers[i](x)
-            #if(self.wiring_period>0):
-             #   if(i % self.wiring_period == 0 and i > 0):
-              #      x0 = x            
+            x = self.EdgeConv_acti_layers[i](x)         
             if(self.dropout_rate > 0):
                 x = self.EdgeConv_dropout_layers[i](x)
 
         x_mask = tf.expand_dims(x_mask, axis=-1)
-        x = tf.reduce_mean(x * x_mask, axis=1)
-        # x = tf.concat([x_sum, x_mean_w, x_mean], axis=1)
+        x_sum = tf.reduce_sum(x * x_mask, axis=1)
+        x_mean = tf.reduce_mean(x * x_mask, axis=1)
+        x = tf.concat([x_sum, x_mean], axis=1)
 
         for i in range(len(self.dense_layers)):
             x = self.dense_layers[i](x)
@@ -317,7 +307,6 @@ def main(cfg: DictConfig) -> None:
         model.build(list(input_shape[0]))
         compile_model(model, dl_config["SetupBaseNN"]["learning_rate"])
         model.summary()
-
         fit_hist = run_training(model, dataloader, False, cfg.log_suffix)
 
         mlflow.log_dict(training_cfg, 'input_cfg/training_cfg.yaml')
@@ -327,7 +316,6 @@ def main(cfg: DictConfig) -> None:
         mlflow.log_artifacts('.hydra', 'input_cfg/hydra')
         mlflow.log_artifact('Training_DisTauTag_SNNv1.log', 'input_cfg/hydra')
         mlflow.log_param('run_id', run_id)
-        
         print(f'\nTraining has finished! Corresponding MLflow experiment name (ID): {cfg.experiment_name}({run_kwargs["experiment_id"]}), and run ID: {run_id}\n')
 
 
