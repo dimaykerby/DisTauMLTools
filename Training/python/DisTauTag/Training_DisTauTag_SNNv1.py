@@ -115,6 +115,7 @@ class SpaceParticleNet(tf.keras.Model):
 
         self.map_features = dl_config["input_map"]["PfCand"]
 
+        self.conv1D_params = dl_config["SetupSNN"]["conv1D_params"]
         self.conv_params = dl_config["SetupSNN"]["conv_params"]
         self.dense_params = dl_config["SetupSNN"]["dense_params"]
         self.wiring_period = dl_config["SetupSNN"]["wiring_period"]
@@ -131,6 +132,7 @@ class SpaceParticleNet(tf.keras.Model):
         self.dense_layers            = []
         self.dense_batch_norm_layers = []
         self.dense_acti_layers       = []
+        self.Conv1D_layers           = []
 
         if(self.dropout_rate > 0):
             self.EdgeConv_dropout_layers = []
@@ -138,10 +140,13 @@ class SpaceParticleNet(tf.keras.Model):
 
         # enumerate embedding in the correct order
         # based on enume class PfCandCategorical
-        for var in dl_config["input_map"]["PfCandCategorical"]:
-            self.embedding[dl_config["input_map"]["PfCandCategorical"][var]] = \
-                tf.keras.layers.Embedding(dl_config['embedded_param']['PfCandCategorical'][var][0],
-                                          dl_config['embedded_param']['PfCandCategorical'][var][1])
+        # for var in dl_config["input_map"]["PfCandCategorical"]:
+        #     self.embedding[dl_config["input_map"]["PfCandCategorical"][var]] = \
+        #         tf.keras.layers.Embedding(dl_config['embedded_param']['PfCandCategorical'][var][0],
+        #                                   dl_config['embedded_param']['PfCandCategorical'][var][1])
+
+        for idx, channel in enumerate(self.conv1D_params):
+            self.Conv1D_layers.append(keras.layers.Conv1D(channel, kernel_size=1, name='Conv1D_{}'.format(idx), activation = 'relu'))
 
         for i,(n_dim, n_output) in enumerate(self.conv_params):
             self.EdgeConv_layers.append(SpaceEdgeConv(n_dim=n_dim, num_outputs=n_output, regu_rate = self.regu_rate, name='EdgeConv_{}'.format(i)))
@@ -169,10 +174,16 @@ class SpaceParticleNet(tf.keras.Model):
         x_cat = input_[1]
         x_mask = x[:,:,self.map_features['pfCand_valid']]
         
-        xx_emb = [self.embedding[i](x_cat[:,:,i]) for i in range(self.embedding_n)]
+        # xx_emb = [self.embedding[i](x_cat[:,:,i]) for i in range(self.embedding_n)]
         
+        x = tf.concat((x_cat,x), axis = 2) # (N, P, n_categorical + n_pf_features)
+
+        coor = x[:,:,-2:]
+        for i in range(len(self.Conv1D_layers)):
+            x = self.Conv1D_layers[i](x)
+        x = tf.concat([x, coor], axis=2)    
         
-        x = tf.concat((*xx_emb,x), axis = 2) # (N, P, n_categorical + n_pf_features)
+        # x = tf.concat((*xx_emb,x), axis = 2) # (N, P, n_categorical + n_pf_features)
         x0 = x
         for i in range(len(self.EdgeConv_layers)):
             if(self.wiring_period>0):
@@ -191,8 +202,9 @@ class SpaceParticleNet(tf.keras.Model):
                 x = self.EdgeConv_dropout_layers[i](x)
 
         x_mask = tf.expand_dims(x_mask, axis=-1)
-        x = tf.reduce_mean(x * x_mask, axis=1)
-        # x = tf.concat([x_sum, x_mean_w, x_mean], axis=1)
+        x_mean = tf.reduce_mean(x * x_mask, axis=1)
+        x_max = tf.reduce_max(x * x_mask, axis=1)
+        x = tf.concat([x_mean, x_max], axis=1)
 
         for i in range(len(self.dense_layers)):
             x = self.dense_layers[i](x)
@@ -298,7 +310,7 @@ def main(cfg: DictConfig) -> None:
         model.build(list(input_shape[0]))
         compile_model(model, dl_config["SetupBaseNN"]["learning_rate"])
         model.summary()
-
+        exit()
         fit_hist = run_training(model, dataloader, False, cfg.log_suffix)
 
         mlflow.log_dict(training_cfg, 'input_cfg/training_cfg.yaml')

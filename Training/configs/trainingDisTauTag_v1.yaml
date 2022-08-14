@@ -69,6 +69,7 @@ SetupBaseNN:
 
 SetupSNN:
 
+    conv1D_params        : [50, 50]
     conv_params          : [ # [dim, n_output]
                               [2, 50],
                               [2, 50],
@@ -76,11 +77,11 @@ SetupSNN:
                               [2, 100],
                               [2, 100],
                               [2, 100],
-                              [2, 200],
-                              [2, 200],
-                              [2, 200],
+                              [2, 170],
+                              [2, 170],
+                              [2, 170],
                            ]
-    dense_params         : [200, 200]
+    dense_params         : [170, 170]
     wiring_period        : 3
     dropout_rate         : 0.1 
     regu_rate            : 0
