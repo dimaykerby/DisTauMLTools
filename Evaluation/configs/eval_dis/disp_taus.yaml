@@ -13,6 +13,7 @@ run_id: ???
 period: '2018 (13 TeV)'
 vs_type: "jet" # jet/e/mu
 dataset_alias: ??? # alias to reference a mixture of input_samples below, e.g. tau_DY_jet_TT
+# pt_bins: [[20, 100], [100, 1000]]
 pt_bins: [[20, 100], [100, 1000]]
 eta_bins: [[0, 2.4]]
 
@@ -29,7 +30,8 @@ eta_bins: [[0, 2.4]]
 #         ]
 # selection
 
-L_bins: [
+L_bins: [ 
+          # [0.0, 200.0],
           [0.0, 0.2],
           [0.2, 1.0,],
           [1.0, 5.0],

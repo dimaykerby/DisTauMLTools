@@ -71,65 +71,84 @@ def main(cfg: DictConfig) -> None:
     # df_all['tau_pt'] = df_all.tau_pt*(1000 - 20) + 20
     
     # dump curves' data into json file
-    json_exists = os.path.exists(output_json_path)
-    json_open_mode = 'r+' if json_exists else 'w'
-    with open(output_json_path, json_open_mode) as json_file:
-        if json_exists: # read performance data to append additional info 
-            performance_data = json.load(json_file)
-        else: # create dictionary to fill with data
-            performance_data = {'name': discriminator.name, 'period': cfg.period, 'metrics': defaultdict(list), 
-                                'roc_curve': defaultdict(list), 'roc_wp': defaultdict(list)}
+    # json_exists = os.path.exists(output_json_path)
+    # json_open_mode = 'r+' if json_exists else 'w'
+    # with open(output_json_path, json_open_mode) as json_file:
+    #     if json_exists: # read performance data to append additional info 
+    #         performance_data = json.load(json_file)
+    #     else: # create dictionary to fill with data
+    #         performance_data = {'name': discriminator.name, 'period': cfg.period, 'metrics': defaultdict(list), 
+    #                             'roc_curve': defaultdict(list), 'roc_wp': defaultdict(list)}
 
-        # loop over pt bins
-        print(f'\n{discriminator.name}')
-        for L_index, (L_min, L_max) in enumerate(cfg.L_bins):
-            for eta_index, (eta_min, eta_max) in enumerate(cfg.eta_bins):
-                for pt_index, (pt_min, pt_max) in enumerate(cfg.pt_bins):
-                    
-                    output_name=f'predict_{cfg.dataset_alias}_pt_{pt_min}_{pt_max}_eta_{eta_min}_{eta_max}_L_{L_min}_{L_max}.png'
+    # loop over pt bins
+    print(f'\n{discriminator.name}')
+    for L_index, (L_min, L_max) in enumerate(cfg.L_bins):
+        for eta_index, (eta_min, eta_max) in enumerate(cfg.eta_bins):
+            for pt_index, (pt_min, pt_max) in enumerate(cfg.pt_bins):
+                
+                output_name=f'predict_{cfg.dataset_alias}_pt_{pt_min}_{pt_max}_eta_{eta_min}_{eta_max}_L_{L_min}_{L_max}.png'
+                output_name_cml=f'predict_cml_{cfg.dataset_alias}_pt_{pt_min}_{pt_max}_eta_{eta_min}_{eta_max}_L_{L_min}_{L_max}.png'
 
-                    # L_bins are in cylindrical coordinates
-                    # L_cut = f'((Lxy>{rho_min} and Lxy<{rho_max} and abs(Lz)<{z_min}) or (abs(Lz)>{z_min} and abs(Lz)<{z_max} and Lxy<{rho_max}))'
-                    # # apply pt/eta/dm bin selection
-                    # df_cut = df_all.query(f'jet_pt >= {pt_min} and jet_pt < {pt_max} and abs(jet_eta) >= {eta_min} and abs(jet_eta) < {eta_max} and ({L_cut} or (gen_tau != 1))') # L cut only for signal
-                    L_cut = f'( Lrel >= {L_min} and Lrel <= {L_max} )'
-                    df_cut = df_all.query(f'jet_pt >= {pt_min} and jet_pt < {pt_max} and abs(jet_eta) >= {eta_min} and abs(jet_eta) < {eta_max} and ({L_cut} or (gen_tau != 1))') # L cut only for signal
-                    
-                    if df_cut.shape[0] == 0:
-                        print("Warning: bin with pt ({}, {}) and eta ({}, {}) is empty.".format(pt_min, pt_max, eta_min, eta_max))
-                        continue
-                    print(f'\n-----> pt bin: [{pt_min}, {pt_max}], eta bin: [{eta_min}, {eta_max}], L [{L_min}, {L_max}]')
-                    print('[INFO] counts:\n', df_cut[['gen_tau', f'gen_{cfg.vs_type}']].value_counts())
+                # L_bins are in cylindrical coordinates
+                # L_cut = f'((Lxy>{rho_min} and Lxy<{rho_max} and abs(Lz)<{z_min}) or (abs(Lz)>{z_min} and abs(Lz)<{z_max} and Lxy<{rho_max}))'
+                # # apply pt/eta/dm bin selection
+                # df_cut = df_all.query(f'jet_pt >= {pt_min} and jet_pt < {pt_max} and abs(jet_eta) >= {eta_min} and abs(jet_eta) < {eta_max} and ({L_cut} or (gen_tau != 1))') # L cut only for signal
+                L_cut = f'( Lrel >= {L_min} and Lrel <= {L_max} )'
+                df_cut = df_all.query(f'jet_pt >= {pt_min} and jet_pt < {pt_max} and abs(jet_eta) >= {eta_min} and abs(jet_eta) < {eta_max} and ({L_cut} or (gen_tau != 1))') # L cut only for signal
+                
+                if df_cut.shape[0] == 0:
+                    print("Warning: bin with pt ({}, {}) and eta ({}, {}) is empty.".format(pt_min, pt_max, eta_min, eta_max))
+                    continue
+                print(f'\n-----> pt bin: [{pt_min}, {pt_max}], eta bin: [{eta_min}, {eta_max}], L [{L_min}, {L_max}]')
+                print('[INFO] counts:\n', df_cut[['gen_tau', f'gen_{cfg.vs_type}']].value_counts())
 
-                    # create roc curve and working points
-                    # roc, wp_roc = discriminator.create_roc_curve(df_cut)
-                    # if roc is not None:
+                # create roc curve and working points
+                # roc, wp_roc = discriminator.create_roc_curve(df_cut)
+                # if roc is not None:
 
-                    pred_hists = {}
-                    count = {}
+                pred_hists = {}
+                count = {}
 
-                    pred_hists["tau"] = df_cut.query('gen_tau==1')[discriminator.pred_column]
-                    print(pred_hists["tau"].count())
-                    # count = pred_hists["tau"][pred_hists["tau"] ]
-                    plt.hist(pred_hists["tau"].to_numpy(), 200, density=True, histtype='stepfilled',color='red',alpha=0.75, label='tau',range=(0.0,1.0))
+                pred_hists["tau"] = df_cut.query('gen_tau==1')[discriminator.pred_column]
+                print(pred_hists["tau"].count())
+                # count = pred_hists["tau"][pred_hists["tau"] ]
+                plt.hist(pred_hists["tau"].to_numpy(), 200, density=True, histtype='stepfilled',color='red',alpha=0.75, label='tau',range=(0.0,1.0))
+                
 
-                    pred_hists["jet"] = df_cut.query('gen_jet==1')[discriminator.pred_column]
-                    print(pred_hists["jet"].count())
-                    plt.hist(pred_hists["jet"].to_numpy(), 200, density=True, histtype='stepfilled',color='blue',alpha=0.75, label='jet',range=(0.0,1.0))
+                pred_hists["jet"] = df_cut.query('gen_jet==1')[discriminator.pred_column]
+                print(pred_hists["jet"].count())
+                plt.hist(pred_hists["jet"].to_numpy(), 200, density=True, histtype='stepfilled',color='blue',alpha=0.75, label='jet',range=(0.0,1.0))
 
-                    plt.xlabel('ids')
-                    # plt.xlim(0.0, 1.0)
-                    plt.yscale("log")
-                    plt.grid(True)
-                    
-                    plt.savefig(output_name)
-                    plt.figure().clear()
-                    plt.close()
-                    plt.cla()
-                    plt.clf()
 
-                    with mlflow.start_run(experiment_id=cfg.experiment_id, run_id=cfg.run_id):
-                        mlflow.log_artifact(output_name, 'plots_pred')
+                plt.xlabel('ids')
+                # plt.xlim(0.0, 1.0)
+                plt.yscale("log")
+                plt.grid(True)
+                
+                plt.savefig(output_name)
+                plt.figure().clear()
+                plt.close()
+                plt.cla()
+                plt.clf()
+                
+                plt.hist(pred_hists["tau"].to_numpy(), 200, density=True, histtype='stepfilled',color='red',alpha=0.75, label='tau',range=(0.0,1.0), cumulative=-1)
+
+                plt.xlabel('ids')
+                # plt.xlim(0.9, 1.0)
+                # plt.xyscale('function', functions=(partial(np.power, 1.0), np.log10))
+                # plt.xscale("log")
+                plt.grid(True)
+                
+                plt.savefig(output_name_cml)
+                plt.figure().clear()
+                plt.close()
+                plt.cla()
+                plt.clf()
+                
+
+                with mlflow.start_run(experiment_id=cfg.experiment_id, run_id=cfg.run_id):
+                    mlflow.log_artifact(output_name, 'plots_pred')
+                    mlflow.log_artifact(output_name_cml, 'plots_pred')
    
     
 if __name__ == '__main__':

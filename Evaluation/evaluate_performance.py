@@ -73,17 +73,17 @@ def main(cfg: DictConfig) -> None:
     # apply selection
     if cfg['cuts'] is not None:
         df_all = df_all.query(cfg.cuts)
-    if cfg['WPs_to_require'] is not None:
-        for wp_vs_type, wp_name in cfg['WPs_to_require'].items():
-            if wp_thresholds is not None:
-                wp_thr = wp_thresholds[wp_vs_type][wp_name]
-            else:
-                if cfg['discriminator']['wp_thresholds_map'] is not None:
-                    wp_thr = cfg['discriminator']['wp_thresholds_map'][wp_vs_type][wp_name]
-                else:
-                    raise RuntimeError('WP thresholds either via wp_thresholds_map or via input json file are not provided.')
-            wp_cut = f"{cfg['discriminator']['pred_column_prefix']}{wp_vs_type} > {wp_thr}"
-            df_all = df_all.query(wp_cut)
+    # if cfg['WPs_to_require'] is not None:
+    #     for wp_vs_type, wp_name in cfg['WPs_to_require'].items():
+    #         if wp_thresholds is not None:
+    #             wp_thr = wp_thresholds[wp_vs_type][wp_name]
+    #         else:
+    #             if cfg['discriminator']['wp_thresholds_map'] is not None:
+    #                 wp_thr = cfg['discriminator']['wp_thresholds_map'][wp_vs_type][wp_name]
+    #             else:
+    #                 raise RuntimeError('WP thresholds either via wp_thresholds_map or via input json file are not provided.')
+    #         wp_cut = f"{cfg['discriminator']['pred_column_prefix']}{wp_vs_type} > {wp_thr}"
+    #         df_all = df_all.query(wp_cut)
         
 
     # # inverse scaling

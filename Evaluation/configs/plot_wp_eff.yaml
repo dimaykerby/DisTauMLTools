@@ -5,18 +5,18 @@ defaults: # import plotting configuration
 vs_type: jet
 pred_samples: # factorised from create_df() args for partial calls per tau_type
   tau:
-    GluGluHToTauTau: 
-      filename_pattern: 'eventTuple_1-*_pred.h5' # single files, list of files and "*" are supported 
+    STAU_M100_1000mm: 
+      filename_pattern: 'eventTuple_*_pred.h5' # single files, list of files and "*" are supported 
       sample_lumi: null
       reweight_to_lumi: null # null to not reweight
   jet:
     TTToSemiLeptonic:
-      filename_pattern: 'eventTuple_1-*_pred.h5'
+      filename_pattern: 'eventTuple_*_pred.h5'
       sample_lumi: null
       reweight_to_lumi: null
 
 
-require_WPs_in_numerator: True # whether to require passing of `WPs_to_require` (all except the one for `vs_type`) in the numerator of the efficiency formula
+require_WPs_in_numerator: False # whether to require passing of `WPs_to_require` (all except the one for `vs_type`) in the numerator of the efficiency formula
 require_WPs_in_denominator: False # whether to require passing of `WPs_to_require` (all except the one for `vs_type`) in the denominator of the efficiency formula
 WPs_to_require:
   e: VVVLoose
@@ -36,8 +36,10 @@ create_df: # dataframe composition
   path_to_preds: "${create_df.path_to_mlflow}/${create_df.experiment_id}/${create_df.run_id}/artifacts/predictions/"
   
   # paths to input ROOT files will be retrieved from corresponding pred_input_filemap.json
-  input_branches: [ 'tau_pt', 'tau_eta', 'tau_phi', 'tau_dz', 'tau_decayMode' ]
-  input_tree_name: taus
-  selection: '(tau_pt>=20) and (tau_pt<1000) and (abs(tau_eta) < 2.3) and (abs(tau_dz) < 0.2) and not (tau_decayMode in [5,6])'
+  # input_branches: [ 'tau_pt', 'tau_eta', 'tau_phi', 'tau_dz', 'tau_decayMode' ]
+  # selection: '(tau_pt>=20) and (tau_pt<1000) and (abs(tau_eta) < 2.3) and (abs(tau_dz) < 0.2) and not (tau_decayMode in [5,6])'
+  selection: "jet_pt>20"
+  input_branches: [ 'jet_pt', 'jet_eta', 'Lrel']
+  input_tree_name: propagated_vars
 
 output_filename: wp_eff/plots/vs_${vs_type}/${var_cfg.var_name}.png # as /path/within/mlflow/artifacts/filename.png

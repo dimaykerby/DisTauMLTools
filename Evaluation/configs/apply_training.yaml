@@ -7,7 +7,7 @@ training_cfg_upd:
     input_type  : "ROOT"
     recompute_jet_type   : True
     to_propagate_glob    : True # This probagate Glob features (needed for evaluation)
-    include_mismatched   : True # whether to keep tau candidates with tau_type not present in `tau_types_names`
+    include_mismatched   : False # whether to keep tau candidates with tau_type not present in `tau_types_names`
   SetupNN:
     n_batches: -1
     n_batches_val: -1
@@ -43,7 +43,8 @@ verbose: True
 checkout_train_repo: False # whether to checkout git commit used for running the training (fetched from artifacts)
 
 
-save_input_names : [
-                    "PfCand",
-                    "PfCandCategorical",
-                   ]
+save_input_names : null
+# save_input_names : [
+#                     "PfCand",
+#                     "PfCandCategorical",
+#                    ]

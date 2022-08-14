@@ -42,9 +42,10 @@ def create_df(path_to_preds, pred_samples, input_branches, input_tree_name, tau_
             df_pred = pd.concat(l_, axis=1)
 
             # read input_branches from the corresponding input file
-            with uproot.open(target_input_map[pred_file]) as f:
-                df_input = f[input_tree_name].arrays(input_branches, library='pd')
-            
+            # with uproot.open(target_input_map[pred_file]) as f:
+            #     df_input = f[input_tree_name].arrays(input_branches, library='pd')
+            df_input = pd.read_hdf(pred_file, input_tree_name)
+
             # concatenate input branches and predictions/labels
             assert df_pred.shape[0] == df_input.shape[0], "Sizes of prediction and input dataframes don't match."
             df_sample_ = pd.concat([df_pred, df_input], axis=1)
@@ -53,6 +54,8 @@ def create_df(path_to_preds, pred_samples, input_branches, input_tree_name, tau_
         
         # concat together files for a given sample and apply tau_type matching & selection
         df_sample = pd.concat(df_sample, axis=0)
+        # df_sample = df_sample.query(f'targets_node_{tau_type_to_select}==1')
+        print(df_sample.keys())
         df_sample = df_sample.query(f'targets_node_{tau_type_to_select}==1')
         if selection is not None:
             df_sample = df_sample.query(selection)
@@ -68,7 +71,7 @@ def create_df(path_to_preds, pred_samples, input_branches, input_tree_name, tau_
     df = pd.concat(df, axis=0)
 
     # compute vs_type discriminator scores
-    vs_types = ['e', 'mu', 'jet']
+    vs_types = ['jet']
     for vs_type in vs_types:
         df['score_vs_' + vs_type] = tau_vs_other(df['predictions_node_tau'].values, df['predictions_node_' + vs_type].values)
    

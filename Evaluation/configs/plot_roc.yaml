@@ -2,13 +2,10 @@
 path_to_mlflow: ???
 experiment_id: ???
 discriminators: # in the format -> run_id: ['curve_type_1', 'curve_type_2', ...]
-  # fb57a260e56945cb8f8b1e11cb2bfbae : ['roc_curve']
-  # 528a5e4391c143fdad06451e8bf98a0e : ['roc_curve']
-  d0fe80926ec2429bbade4bc5c60d2e34 : ['roc_curve']
-  9bea2e5d286b46bf86ac51285842be42 : ['roc_curve']
-  a27159734e304ea4b7f9e0042baa9e22 : ['roc_curve']
+  bf7f8bc8d1d04fc0be56d42f185c5630 : ['roc_curve']
+  3f64c59aef7b476087ecfefc80209927 : ['roc_curve']
 reference:
-  9bea2e5d286b46bf86ac51285842be42 : 'roc_curve'
+  bf7f8bc8d1d04fc0be56d42f185c5630 : 'roc_curve'
 
 
 # region

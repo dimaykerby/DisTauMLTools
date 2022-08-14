@@ -5,6 +5,7 @@ import git
 import glob
 from tqdm import tqdm
 from shutil import rmtree
+import time
 
 import uproot
 import numpy as np
@@ -80,26 +81,24 @@ def main(cfg: DictConfig) -> None:
         # open input file
         with uproot.open(input_file_name) as f:
             n_taus = f['taus'].num_entries
-            tau_indexes = f['taus'].arrays(['evt','tau_index'], library="np")
-            tau_indexes = [ tau_indexes['evt'].tolist(), tau_indexes['tau_index'].tolist() ]
+            # tau_indexes = f['taus'].arrays(['evt','tau_index'], library="np")
+            # tau_indexes = [ tau_indexes['evt'].tolist(), tau_indexes['tau_index'].tolist() ]
 
-            if cfg.toKeepID:
-                print("Adding IDs:",cfg.toKeepID)
-                toKeep = ["tau_"+id_ for id_ in cfg.toKeepID]
-                deeptau_ids =  f['taus'].arrays(toKeep, library="pd")
+            # if cfg.toKeepID:
+            #     print("Adding IDs:",cfg.toKeepID)
+            #     toKeep = ["tau_"+id_ for id_ in cfg.toKeepID]
+            #     deeptau_ids =  f['taus'].arrays(toKeep, library="pd")
             
         if cfg.save_input_names:
             print("Tensors will be saved:",cfg.save_input_names)
             X_saveinput = [ [] for _ in  range(len(cfg.save_input_names)) ]
 
-        if cfg.save_input_names:
-            print("Tensors will be saved:",cfg.save_input_names)
-            X_saveinput = [ [] for _ in  range(len(cfg.save_input_names)) ]
 
         # run predictions
         predictions = []
         targets = []
         propagated_vars = []
+        time_measure = []
         if cfg.verbose: print(f'\n\n--> Processing file {input_file_name}, number of taus: {n_taus}\n')
         with tqdm(total=n_taus) as pbar:
 
@@ -113,10 +112,13 @@ def main(cfg: DictConfig) -> None:
                 # y_target.fill(-1)
                 glob_var.fill(-1)
 
+                start = time.time()
                 if dataloader.config["Setup"]["input_type"]=="Adversarial":
                     y_pred[indexes] = model.predict(X)[0]
                 else:
                     y_pred[indexes] = model.predict(X)
+                end = time.time()
+                time_measure.append(end-start)
 
                 y_target[indexes] = y
                 glob_var[indexes] = x_glob
@@ -148,8 +150,8 @@ def main(cfg: DictConfig) -> None:
 
 
         # store into intermediate hdf5 file
-        predictions = pd.DataFrame({f'node_{tau_type}_pred': predictions[:, int(idx)] for idx, tau_type in tau_types_names.items()})
-        targets = pd.DataFrame({f'node_{tau_type}_tar': targets[:, int(idx)] for idx, tau_type in tau_types_names.items()}, dtype=np.int64)
+        predictions = pd.DataFrame({f'node_{tau_type}': predictions[:, int(idx)] for idx, tau_type in tau_types_names.items()})
+        targets = pd.DataFrame({f'node_{tau_type}': targets[:, int(idx)] for idx, tau_type in tau_types_names.items()}, dtype=np.int64)
         propagated_vars = pd.DataFrame({f'{name}': propagated_vars[:, int(idx)] for name, idx in global_features.items()})
 
         predictions.to_hdf(f'{output_filename}.h5', key='predictions', mode='w', format='fixed', complevel=1, complib='zlib')
@@ -180,31 +182,37 @@ def main(cfg: DictConfig) -> None:
                     pbar.update(1)
 
         # store DeepTau IDs:
-        if cfg.toKeepID:
-            assert(deeptau_ids.shape[0] == predictions.shape[0])
-            assert(deeptau_ids.shape[0] == len(tau_indexes[0]))
-            assert(deeptau_ids.shape[0] == len(tau_indexes[1]))
-            deeptau_ids['event'] = tau_indexes[0]
-            deeptau_ids['tau_idx'] = tau_indexes[1]
-            deeptau_ids.to_hdf(f'{output_filename}.h5', key='deeptauIDs', mode='r+', format='fixed', complevel=1, complib='zlib')
+        # if cfg.toKeepID:
+        #     assert(deeptau_ids.shape[0] == predictions.shape[0])
+        #     assert(deeptau_ids.shape[0] == len(tau_indexes[0]))
+        #     assert(deeptau_ids.shape[0] == len(tau_indexes[1]))
+        #     deeptau_ids['event'] = tau_indexes[0]
+        #     deeptau_ids['tau_idx'] = tau_indexes[1]
+        #     deeptau_ids.to_hdf(f'{output_filename}.h5', key='deeptauIDs', mode='r+', format='fixed', complevel=1, complib='zlib')
 
-        if cfg.save_input_names:
-            if not os.path.exists(f'{output_filename}_input'):
-                os.makedirs(f'{output_filename}_input')
-            assert(len(X_saveinput) == len(cfg.save_input_names))
-            for i, X_tensors in enumerate(X_saveinput):
-                X_saveinput[i] = np.concatenate(X_tensors, axis=0)
-            print("Saving tesnsors:")
-            with tqdm(total=n_taus) as pbar:
-                for tau_i, (evnt, idx) in enumerate(zip(tau_indexes[0],tau_indexes[1])):
-                    saved_arrays = {}
-                    for i, name in enumerate(cfg.save_input_names):
-                        saved_arrays[name] = X_saveinput[i][tau_i]
-                    np.save(f'{output_filename}_input/tensor_{evnt}_{idx}.npy',saved_arrays)
-                    pbar.update(1)
+        # if cfg.save_input_names:
+        #     if not os.path.exists(f'{output_filename}_input'):
+        #         os.makedirs(f'{output_filename}_input')
+        #     assert(len(X_saveinput) == len(cfg.save_input_names))
+        #     for i, X_tensors in enumerate(X_saveinput):
+        #         X_saveinput[i] = np.concatenate(X_tensors, axis=0)
+        #     print("Saving tesnsors:")
+        #     with tqdm(total=n_taus) as pbar:
+        #         for tau_i, (evnt, idx) in enumerate(zip(tau_indexes[0],tau_indexes[1])):
+        #             saved_arrays = {}
+        #             for i, name in enumerate(cfg.save_input_names):
+        #                 saved_arrays[name] = X_saveinput[i][tau_i]
+        #             np.save(f'{output_filename}_input/tensor_{evnt}_{idx}.npy',saved_arrays)
+        #             pbar.update(1)
+
+        # log predict time:
+        from statistics import mean
+        avr_time = mean(time_measure)
+        print ("Mean time >>> ", avr_time)
 
         # log to mlflow and delete intermediate file
         with mlflow.start_run(experiment_id=cfg.experiment_id, run_id=cfg.run_id) as active_run:
+            # mlflow.log_param('Predict time: ', avr_time)
             mlflow.log_artifact(f'{output_filename}.h5', f'predictions/{cfg.sample_alias}')
         os.remove(f'{output_filename}.h5')
 
