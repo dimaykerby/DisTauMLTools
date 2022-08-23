@@ -53,19 +53,9 @@
     VAR4(Float_t, pv_xE, pv_yE, pv_zE, pv_tE) /* position and time errors of the primary vertex (PV) */ \
     VAR(Float_t, pv_chi2) /* chi^2 of the primary vertex (PV) */ \
     VAR(Float_t, pv_ndof) /* number of degrees of freedom of the primary vertex (PV) */ \
-    VAR2(Float_t, met_pt, met_phi) /* MET momentum */ \
-    VAR3(Float_t, metcov_00, metcov_01, metcov_11) /* MET covariance */ \
-    VAR2(Float_t, puppimet_pt, puppimet_phi) /* PuppiMET momentum */ \
-    VAR3(Float_t, puppimetcov_00, puppimetcov_01, puppimetcov_11) /* MET covariance */ \
-    VAR2(Float_t, deepmet_pt, deepmet_phi) /* DeepMET momentum */ \
-    VAR2(Float_t, genmet_pt, genmet_phi) /* DeepMET momentum */ \
     VAR(Int_t, entry_index) /* Index of the entry in the event */ \
     VAR(Int_t, total_entries) /* The total number of entries in the event */ \
     /* Gen lepton with the full decay chain */ \
-    /* TauSpinner weights */ \
-    VAR(Double_t, tauSpinnerWTEven) \
-    VAR(Double_t, tauSpinnerWTOdd) \
-    VAR(Double_t, tauSpinnerWTMM) \
     VAR(Int_t, genLepton_index) /* index of the gen lepton */ \
     VAR(Int_t, genLepton_kind) /* kind of the gen lepton:
                                   Electron = 1, Muon = 2, TauElectron = 3, TauMuon = 4, Tau = 5, Other = 6 */\
@@ -107,15 +97,6 @@
     VAR(Int_t, genJet_n_leptons) /* number of leptons clustered inside the jet */ \
     VAR(Int_t, genJet_hadronFlavour) /* hadron-based flavour */ \
     VAR(Int_t, genJet_partonFlavour) /* parton-based flavour */ \
-    /* Tag object variables (for tag-and-probe data) */ \
-    VAR(Int_t, tagObj_valid) /* indicates presence of the tag object */ \
-    VAR4(Float_t, tagObj_pt, tagObj_eta, tagObj_phi, tagObj_mass) /* 4-momentum of the tag object */ \
-    VAR(Int_t, tagObj_charge) /* charge of the tag object */ \
-    VAR(UInt_t, tagObj_id) /* ID of the tag object */ \
-    VAR(Float_t, tagObj_iso) /* isolation of the tag object */ \
-    VAR(Int_t, has_extramuon) /* Extra muon present */ \
-    VAR(Int_t, has_extraelectron) /* Extra electron present */ \
-    VAR(Int_t, has_dimuon) /* Extra muon pair present */ \
     /* Jet variables (for both AK4 and AK8 (aka "fat") jets) */ \
     JET_VAR(Int_t, index) /* index of the jet */ \
     JET_VAR4(Float_t, pt, eta, phi, mass) /* 4-momentum of the jet */ \

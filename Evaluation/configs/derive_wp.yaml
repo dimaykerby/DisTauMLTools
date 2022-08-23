@@ -17,7 +17,7 @@ wp_maker:
     #   Loose: 0.999
     #   VLoose: 0.9995
     jet:
-      VVTight: 0.4
+      # VVTight: 0.4
       VTight: 0.5 
       Tight: 0.6
       Medium: 0.7

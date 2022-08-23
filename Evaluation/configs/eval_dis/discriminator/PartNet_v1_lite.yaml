@@ -1,7 +1,7 @@
 # general
-name: SNN v1 (full)
-color: red
-dashed: False
+name: ParticleNet v1 (lite)
+color: green
+dashed: True
 raw: True
 
 # prediction/target columns

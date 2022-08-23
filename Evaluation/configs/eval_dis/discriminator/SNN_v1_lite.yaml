@@ -1,7 +1,7 @@
 # general
-name: SNN v1 (full)
+name: SNN v1 (lite)
 color: red
-dashed: False
+dashed: True
 raw: True
 
 # prediction/target columns
