@@ -211,30 +211,30 @@ class Discriminator:
             print('[INFO] raw=False, will skip creating ROC curve')        
         
         # construct WPs
-        if self.wp_from in ['wp_column', 'pred_column']:  
-            if (n_wp:=len(self.wp_names)) > 0:
-                wp_roc = RocCurve(n_wp, self.color, not self.raw, self.raw)
-                for wp_i, wp_name in enumerate(self.wp_names):
-                    for kind in [0, 1]:
-                        df_x = df[df['gen_tau'] == kind]
-                        n_passed = self.count_passed(df_x, wp_name)
-                        n_total = np.sum(df_x.weight.values)
-                        eff = float(n_passed) / n_total if n_total > 0 else 0.0
-                        wp_roc.pr[kind, n_wp - wp_i - 1] = eff
-                        if not self.raw:
-                            if sys.version_info.major > 2:
-                                ci_low, ci_upp = proportion_confint(n_passed, n_total, alpha=1-0.68, method='beta')
-                            else:
-                                err = math.sqrt(eff * (1 - eff) / n_total)
-                                ci_low, ci_upp = eff - err, eff + err
-                            wp_roc.pr_err[kind, 1, n_wp - wp_i - 1] = ci_upp - eff
-                            wp_roc.pr_err[kind, 0, n_wp - wp_i - 1] = eff - ci_low
-            else:
-                raise RuntimeError('No working points specified')
-        elif self.wp_from is None:
-            print('[INFO] wp_from=None, will skip creating WP')
-        else:
-            raise RuntimeError(f'create_roc_curve() behaviour not defined for: wp_from={self.wp_from}')
+        # if self.wp_from in ['wp_column', 'pred_column']:  
+        #     if (n_wp:=len(self.wp_names)) > 0:
+        #         wp_roc = RocCurve(n_wp, self.color, not self.raw, self.raw)
+        #         for wp_i, wp_name in enumerate(self.wp_names):
+        #             for kind in [0, 1]:
+        #                 df_x = df[df['gen_tau'] == kind]
+        #                 n_passed = self.count_passed(df_x, wp_name)
+        #                 n_total = np.sum(df_x.weight.values)
+        #                 eff = float(n_passed) / n_total if n_total > 0 else 0.0
+        #                 wp_roc.pr[kind, n_wp - wp_i - 1] = eff
+        #                 if not self.raw:
+        #                     if sys.version_info.major > 2:
+        #                         ci_low, ci_upp = proportion_confint(n_passed, n_total, alpha=1-0.68, method='beta')
+        #                     else:
+        #                         err = math.sqrt(eff * (1 - eff) / n_total)
+        #                         ci_low, ci_upp = eff - err, eff + err
+        #                     wp_roc.pr_err[kind, 1, n_wp - wp_i - 1] = ci_upp - eff
+        #                     wp_roc.pr_err[kind, 0, n_wp - wp_i - 1] = eff - ci_low
+        #     else:
+        #         raise RuntimeError('No working points specified')
+        # elif self.wp_from is None:
+        #     print('[INFO] wp_from=None, will skip creating WP')
+        # else:
+        #     raise RuntimeError(f'create_roc_curve() behaviour not defined for: wp_from={self.wp_from}')
         return roc, wp_roc
 
 def create_roc_ratio(x1, y1, x2, y2, wp):
@@ -340,6 +340,7 @@ def create_df(path_to_input_file, input_branches, id_branches, path_to_pred_file
         add_group(df, 'weights', path_to_weights, None)
     else:
         df['weight'] = pd.Series(np.ones(df.shape[0]), index=df.index)
+
 
     return df
 

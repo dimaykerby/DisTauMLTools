@@ -115,9 +115,10 @@ def main(cfg: DictConfig) -> None:
                         continue
                     print(f'\n-----> pt bin: [{pt_min}, {pt_max}], eta bin: [{eta_min}, {eta_max}], L [{L_min}, {L_max}]')
                     print('[INFO] counts:\n', df_cut[['gen_tau', f'gen_{cfg.vs_type}']].value_counts())
-
+                    # print(df_cut.query("(gen_tau==1) and (tau_byDeepTau2017v2p1VSjetraw>0)"))
+                    # print(df_cut.query("(gen_jet==1) and (tau_byDeepTau2017v2p1VSjetraw>0)"))
                     # create roc curve and working points
-                    roc, wp_roc = discriminator.create_roc_curve(df_cut)
+                    roc, _ = discriminator.create_roc_curve(df_cut)
                     if roc is not None:
                         # prune the curve
                         lim = getattr(plot_setup,  'xlim')
@@ -127,7 +128,7 @@ def main(cfg: DictConfig) -> None:
                             print(f'[INFO] ROC curve done, AUC = {roc.auc_score}')
 
                     # loop over [ROC curve, ROC curve WP] for a given discriminator and store its info into dict
-                    for curve_type, curve in zip(['roc_curve', 'roc_wp'], [roc, wp_roc]):
+                    for curve_type, curve in zip(['roc_curve'], [roc]):
                         if curve is None: continue
                         if json_exists and curve_type in performance_data['metrics'] \
                                         and (existing_curve := eval_tools.select_curve(performance_data['metrics'][curve_type], 
